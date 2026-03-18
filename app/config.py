@@ -1,0 +1,60 @@
+from __future__ import annotations
+
+import os
+from dataclasses import dataclass
+from pathlib import Path
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_DATA_FILE = PROJECT_ROOT / "app" / "data" / "subway_network.json"
+DEFAULT_GTFS_DIR = PROJECT_ROOT / "app" / "data" / "gtfs"
+DEFAULT_POSITION_FILE = (
+    PROJECT_ROOT / "app" / "data" / "station_positions_taipei_vector_map_2022.json"
+)
+
+
+def _env_flag(name: str, default: bool = False) -> bool:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+@dataclass(frozen=True)
+class Settings:
+    app_name: str = "IT3160 Subway Web"
+    project_root: Path = PROJECT_ROOT
+    data_file: Path = Path(os.getenv("SUBWAY_JSON_DATA_FILE", str(DEFAULT_DATA_FILE)))
+    gtfs_dir: Path = Path(os.getenv("SUBWAY_GTFS_DIR", str(DEFAULT_GTFS_DIR)))
+    station_positions_file: Path = Path(
+        os.getenv("SUBWAY_STATION_POSITIONS_FILE", str(DEFAULT_POSITION_FILE))
+    )
+    static_dir: Path = PROJECT_ROOT / "app" / "static"
+    map_dir: Path = PROJECT_ROOT / "map"
+    map_image_name: str = "taipei-vector-map-2022.svg"
+    map_width: int = 3507
+    map_height: int = 2480
+    map_is_vector: bool = True
+    map_supports_line_hints: bool = _env_flag("SUBWAY_MAP_SUPPORTS_LINE_HINTS", False)
+    map_max_zoom: int = 10
+    diagram_svg_name: str = "taipei_mrt_interactive.svg"
+    diagram_width: float = 160.0
+    diagram_height: float = 160.0
+    diagram_raster_width: int = 4096
+    diagram_raster_height: int = 4096
+    diagram_is_vector: bool = True
+    diagram_max_zoom: int = 14
+    default_transfer_sec: int = int(os.getenv("SUBWAY_DEFAULT_TRANSFER_SEC", "180"))
+    auto_walk_transfer_radius: float = float(
+        os.getenv("SUBWAY_AUTO_WALK_TRANSFER_RADIUS", "0")
+    )
+    auto_walk_seconds_per_unit: float = float(
+        os.getenv("SUBWAY_AUTO_WALK_SECONDS_PER_UNIT", "1.0")
+    )
+    point_route_max_station_walk_sec: int = int(
+        os.getenv("SUBWAY_POINT_ROUTE_MAX_WALK_SEC", "60")
+    )
+
+
+def get_settings() -> Settings:
+    return Settings()
