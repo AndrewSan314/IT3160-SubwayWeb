@@ -3,17 +3,29 @@
 Minimal Python web app for subway routing using FastAPI and a custom Dijkstra engine on an expanded station-line graph.
 
 The frontend now uses:
-- `map/taipei-vector-map-2022.svg` for real-map point picking
-- `map/taipei_mrt_interactive.svg` as the semantic subway diagram surface
+- `map/geography/taipei-vector-map-2022.svg` for real-map point picking
+- `map/diagram/taipei_mrt_interactive.svg` as the semantic subway diagram surface
 
 The interactive subway SVG is generated from the MetroMapMaker export by:
 
 ```powershell
-python IT3160-SubwayWeb\scripts\normalize_metromapmaker_svg.py `
-  --source IT3160-SubwayWeb\map\metromapmaker-8S4w6aZ4.svg `
-  --output IT3160-SubwayWeb\map\taipei_mrt_interactive.svg `
+python IT3160-SubwayWeb\scripts\map\normalize_metromapmaker_svg.py `
+  --source IT3160-SubwayWeb\map\diagram\metromapmaker-8S4w6aZ4.svg `
+  --output IT3160-SubwayWeb\map\diagram\taipei_mrt_interactive.svg `
   --mapping IT3160-SubwayWeb\app\data\taipei_mrt_interactive_map.json
 ```
+
+## Structure
+
+- `app/static/route-studio` contains the main demo page.
+- `app/static/calibration` contains the calibration tool.
+- `app/static/builder` contains the graph builder.
+- `app/static/shared` contains shared UI shell styles.
+- `docs/architecture` stores codebase structure docs.
+- `docs/planning` stores task allocation and planning docs.
+- `scripts/map` stores map and SVG normalization scripts.
+- `map/geography` stores real-map assets.
+- `map/diagram` stores semantic diagram assets.
 
 Calibration tool:
 

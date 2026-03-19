@@ -39,10 +39,10 @@ class ApiTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("stations", body)
         self.assertIn("segments", body)
         self.assertGreaterEqual(len(body["stations"]), 150)
-        self.assertEqual(body["map"]["image_url"], "/map/taipei-vector-map-2022.svg")
+        self.assertEqual(body["map"]["image_url"], "/map/geography/taipei-vector-map-2022.svg")
         self.assertTrue(body["map"]["is_vector"])
         self.assertFalse(body["map"]["supports_line_hints"])
-        self.assertEqual(body["diagram"]["svg_url"], "/map/taipei_mrt_interactive.svg")
+        self.assertEqual(body["diagram"]["svg_url"], "/map/diagram/taipei_mrt_interactive.svg")
         self.assertTrue(body["diagram"]["is_vector"])
 
     async def test_builder_network_endpoint_returns_raw_station_lines(self):

@@ -7,6 +7,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from app.services.route_engine import RouteEngine
+from app.services.subway_loader import NetworkBuildOptions
 from app.services.subway_loader import load_network_from_dict
 
 
@@ -138,6 +139,44 @@ class RouteEngineTests(unittest.TestCase):
         self.assertNotEqual(result["selected_start_station"]["id"], "B2")
         self.assertEqual(result["selected_end_station"]["id"], "R5")
         self.assertEqual(result["route"]["line_sequence"], ["red"])
+
+    def test_generated_walk_transfers_create_walk_steps_between_nearby_stations(self):
+        raw = {
+            "stations": [
+                {"id": "A", "name": "Alpha", "x": 100, "y": 100},
+                {"id": "B", "name": "Beta", "x": 118, "y": 100},
+                {"id": "C", "name": "Gamma", "x": 220, "y": 100},
+            ],
+            "lines": [
+                {"id": "red", "name": "Red Line", "color": "#d94f4f"},
+                {"id": "blue", "name": "Blue Line", "color": "#3d6df2"},
+            ],
+            "station_lines": [
+                {"station_id": "A", "line_id": "red", "seq": 1},
+                {"station_id": "B", "line_id": "blue", "seq": 1},
+                {"station_id": "C", "line_id": "blue", "seq": 2},
+            ],
+            "segments": [
+                {"line_id": "blue", "from_station_id": "B", "to_station_id": "C", "travel_sec": 90},
+            ],
+            "transfers": [],
+        }
+
+        network = load_network_from_dict(
+            raw,
+            options=NetworkBuildOptions(
+                auto_walk_transfer_radius=25.0,
+                auto_walk_seconds_per_unit=2.0,
+            ),
+        )
+        engine = RouteEngine(network)
+
+        result = engine.find_route("A", "C")
+
+        self.assertEqual(result.station_ids, ["A", "B", "C"])
+        self.assertEqual([step.kind for step in result.steps], ["walk", "ride"])
+        self.assertEqual(result.walking_time_sec, 36)
+        self.assertEqual(result.total_time_sec, 126)
 
 
 if __name__ == "__main__":

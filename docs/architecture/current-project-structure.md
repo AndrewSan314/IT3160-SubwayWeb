@@ -78,14 +78,23 @@ Services + Domain + Data files
 ```text
 IT3160-SubwayWeb/
 ├─ app/
-│  ├─ api/          # Endpoint FastAPI
-│  ├─ data/         # Network JSON, station positions, data phụ
-│  ├─ domain/       # Model dữ liệu lõi
-│  ├─ services/     # Loader, runtime cache, route engine, store
-│  └─ static/       # HTML, CSS, JavaScript cho 3 màn hình
-├─ docs/            # Tài liệu dự án, kế hoạch, phân việc
-├─ map/             # Ảnh nền và sơ đồ SVG
-├─ scripts/         # Script hỗ trợ xử lý dữ liệu
+│  ├─ api/                       # Endpoint FastAPI
+│  ├─ data/                      # Network JSON, station positions, data phụ
+│  ├─ domain/                    # Model dữ liệu lõi
+│  ├─ services/                  # Loader, runtime cache, route engine, store
+│  └─ static/
+│     ├─ route-studio/           # Main demo UI
+│     ├─ calibration/            # Calibration Tool UI
+│     ├─ builder/                # Graph Builder UI
+│     └─ shared/                 # Shared shell styles
+├─ docs/
+│  ├─ architecture/             # Tài liệu cấu trúc codebase
+│  └─ planning/                 # Kế hoạch, phân việc
+├─ map/
+│  ├─ geography/                # Real-map assets
+│  └─ diagram/                  # Semantic diagram assets
+├─ scripts/
+│  └─ map/                      # Script hỗ trợ xử lý dữ liệu map/SVG
 ├─ tests/           # Test backend
 ├─ README.md
 ├─ pyproject.toml
@@ -97,15 +106,20 @@ IT3160-SubwayWeb/
 
 | Thư mục | Vai trò chính |
 | --- | --- |
+| `app/static/route-studio` | Route Studio UI |
+| `app/static/calibration` | Calibration Tool UI |
+| `app/static/builder` | Graph Builder UI |
+| `app/static/shared` | Shared UI shell styles |
+| `docs/architecture` | Codebase structure docs |
+| `docs/planning` | Planning and task-allocation docs |
+| `scripts/map` | Map/SVG normalization scripts |
+| `map/geography` | Real-map assets |
+| `map/diagram` | Semantic diagram assets |
 | `app/api` | Chứa endpoint để frontend và tool nội bộ gọi backend |
 | `app/services` | Chứa logic xử lý chính: load network, build runtime, tính route, lưu dữ liệu |
 | `app/domain` | Chứa model dữ liệu lõi như station, line, segment, route result |
-| `app/static` | Chứa giao diện của Route Studio, Calibration Tool và Graph Builder |
 | `app/data` | Chứa network JSON, station positions, file map phụ trợ |
-| `map` | Chứa asset bản đồ địa lý và sơ đồ MRT dạng SVG |
-| `scripts` | Chứa script chuẩn hóa hoặc rebuild dữ liệu từ asset |
 | `tests` | Chứa test tự động cho backend, route engine và loader |
-| `docs` | Chứa tài liệu trình bày, kế hoạch và phân chia task |
 
 ## 7. Luồng dữ liệu end-to-end
 
@@ -175,15 +189,15 @@ IT3160-SubwayWeb/
 | `POST /api/calibration/stations` | Lưu vị trí ga trên real map |
 | `POST /api/builder/network` | Lưu network do builder tạo/chỉnh |
 
-### 8.3. Runtime / source mode
+### 8.3. Runtime cache
 
 - File: `app/services/runtime.py`
 - Vai trò:
-  - quyết định dùng nguồn dữ liệu `JSON` hay `GTFS`,
+  - load network từ file JSON chính,
   - cache network,
   - cache route engine,
   - refresh cache sau khi dữ liệu bị thay đổi.
-- Đây là chỗ quan trọng để giải thích vì sao project hỗ trợ cả dữ liệu tự dựng và dữ liệu chuẩn GTFS.
+- Đây là chỗ quan trọng để giải thích vì sao app luôn dùng một source of truth là network JSON hiện hành.
 
 ### 8.4. Route engine
 
@@ -198,7 +212,7 @@ IT3160-SubwayWeb/
 
 ### 8.5. Main UI
 
-- File: `app/static/app.js`
+- File: `app/static/route-studio/app.js`
 - Vai trò:
   - điều khiển màn hình Route Studio,
   - xử lý click trên real map,
@@ -208,7 +222,7 @@ IT3160-SubwayWeb/
 
 ### 8.6. Graph Builder
 
-- File: `app/static/builder.js`
+- File: `app/static/builder/builder.js`
 - Vai trò:
   - quản lý line, station, order,
   - đặt vị trí station trên diagram,
@@ -217,7 +231,7 @@ IT3160-SubwayWeb/
 
 ### 8.7. Calibration Tool
 
-- File: `app/static/calibrate.js`
+- File: `app/static/calibration/calibrate.js`
 - Vai trò:
   - đặt vị trí ga trên real map,
   - nudge tọa độ,
@@ -233,9 +247,7 @@ IT3160-SubwayWeb/
   - Route Studio,
   - Calibration Tool,
   - Graph Builder.
-- Có hỗ trợ 2 nguồn dữ liệu:
-  - JSON mode,
-  - GTFS mode.
+- Có một nguồn dữ liệu chính là network JSON do builder/calibration cùng cập nhật.
 - Có bộ test backend cơ bản và hiện đang pass.
 
 ## 10. Project còn thiếu gì để hoàn thiện demo/nộp
@@ -258,7 +270,7 @@ IT3160-SubwayWeb/
 
 - Chưa có frontend automated test.
 - Chưa có CI để chạy test tự động mỗi lần sửa.
-- `app/static/app.js` đang khá lớn, nên nên tách module nếu dự án phát triển tiếp.
+- `app/static/route-studio/app.js` đang khá lớn, nên nên tách module nếu dự án phát triển tiếp.
 - `README.md` chưa phản ánh đầy đủ toàn bộ thay đổi mới nhất.
 
 **Kết luận ngắn cho phần này**
@@ -282,7 +294,7 @@ IT3160-SubwayWeb/
 ### 11.3. Nói về kiến trúc
 
 - “Frontend nhận thao tác, API làm cầu nối, services xử lý dữ liệu và route.”
-- “Dữ liệu có thể đến từ JSON hoặc GTFS tùy runtime.”
+- “Dữ liệu hiện dùng một source of truth là JSON network của project.”
 
 ### 11.4. Nói về điểm kỹ thuật đáng chú ý
 
@@ -302,20 +314,18 @@ IT3160-SubwayWeb/
 - `app/domain/models.py`
 - `app/services/runtime.py`
 - `app/services/subway_loader.py`
-- `app/services/subway_gtfs_loader.py`
 - `app/services/route_engine.py`
 - `app/services/calibration_store.py`
 - `app/services/subway_network_store.py`
-- `app/static/index.html`
-- `app/static/app.css`
-- `app/static/app.js`
-- `app/static/calibrate.html`
-- `app/static/calibrate.js`
-- `app/static/builder.html`
-- `app/static/builder.js`
+- `app/static/route-studio/index.html`
+- `app/static/shared/app-shell.css`
+- `app/static/route-studio/app.js`
+- `app/static/calibration/index.html`
+- `app/static/calibration/calibrate.js`
+- `app/static/builder/index.html`
+- `app/static/builder/builder.js`
 - `tests/test_api.py`
 - `tests/test_route_engine.py`
-- `tests/test_gtfs_loader.py`
 - `tests/test_calibration_store.py`
 - `README.md`
 - `pyproject.toml`

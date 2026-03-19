@@ -7,7 +7,6 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_DATA_FILE = PROJECT_ROOT / "app" / "data" / "subway_network.json"
-DEFAULT_GTFS_DIR = PROJECT_ROOT / "app" / "data" / "gtfs"
 DEFAULT_POSITION_FILE = (
     PROJECT_ROOT / "app" / "data" / "station_positions_taipei_vector_map_2022.json"
 )
@@ -25,19 +24,18 @@ class Settings:
     app_name: str = "IT3160 Subway Web"
     project_root: Path = PROJECT_ROOT
     data_file: Path = Path(os.getenv("SUBWAY_JSON_DATA_FILE", str(DEFAULT_DATA_FILE)))
-    gtfs_dir: Path = Path(os.getenv("SUBWAY_GTFS_DIR", str(DEFAULT_GTFS_DIR)))
     station_positions_file: Path = Path(
         os.getenv("SUBWAY_STATION_POSITIONS_FILE", str(DEFAULT_POSITION_FILE))
     )
     static_dir: Path = PROJECT_ROOT / "app" / "static"
     map_dir: Path = PROJECT_ROOT / "map"
-    map_image_name: str = "taipei-vector-map-2022.svg"
+    map_image_name: str = "geography/taipei-vector-map-2022.svg"
     map_width: int = 3507
     map_height: int = 2480
     map_is_vector: bool = True
     map_supports_line_hints: bool = _env_flag("SUBWAY_MAP_SUPPORTS_LINE_HINTS", False)
     map_max_zoom: int = 10
-    diagram_svg_name: str = "taipei_mrt_interactive.svg"
+    diagram_svg_name: str = "diagram/taipei_mrt_interactive.svg"
     diagram_width: float = 160.0
     diagram_height: float = 160.0
     diagram_raster_width: int = 4096

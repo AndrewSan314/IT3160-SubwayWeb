@@ -2,7 +2,7 @@ const calState = {
   network: null,
   activeStationId: null,
   stationMap: new Map(),
-  overlay: createCalibrationOverlayState("/map/taipei-metro-geographical-map.svg"),
+  overlay: createCalibrationOverlayState("/map/geography/taipei-metro-geographical-map.svg"),
 };
 
 const calElements = {

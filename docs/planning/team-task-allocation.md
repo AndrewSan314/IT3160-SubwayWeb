@@ -30,7 +30,7 @@
 **Mục tiêu**
 
 - Chịu trách nhiệm phần “tính đúng” của hệ thống.
-- Khóa logic route, nguồn dữ liệu JSON/GTFS và API contract cho frontend.
+- Khóa logic route, nguồn dữ liệu JSON và API contract cho frontend.
 
 **Files ownership**
 
@@ -38,10 +38,8 @@
 - `app/services/runtime.py`
 - `app/services/route_engine.py`
 - `app/services/subway_loader.py`
-- `app/services/subway_gtfs_loader.py`
 - `tests/test_api.py`
 - `tests/test_route_engine.py`
-- `tests/test_gtfs_loader.py`
 
 **Deliverables**
 
@@ -74,10 +72,12 @@
 
 **Files ownership**
 
-- `app/static/index.html`
-- `app/static/app.css`
-- `app/static/app.js`
-- Các asset hiển thị liên quan đến route demo trong `map/`
+- `app/static/route-studio/index.html`
+- `app/static/shared/app-shell.css`
+- `app/static/route-studio/app.js`
+- `map/geography/taipei-vector-map-2022.svg`
+- `map/diagram/taipei_mrt_interactive.svg`
+- Các asset hiển thị liên quan đến route demo trong `map/geography` và `map/diagram`
 
 **Deliverables**
 
@@ -109,19 +109,19 @@
 
 **Files ownership**
 
-- `app/static/calibrate.html`
-- `app/static/calibrate.js`
-- `app/static/builder.html`
-- `app/static/builder.js`
+- `app/static/calibration/*`
+- `app/static/builder/*`
 - `app/data/*`
-- `scripts/*`
-- `docs/current-project-structure.md`
-- `docs/team-task-allocation.md`
+- `scripts/map/*`
+- `map/geography/taipei-metro-geographical-map.svg`
+- `map/diagram/metromapmaker-8S4w6aZ4.svg`
+- `docs/architecture/current-project-structure.md`
+- `docs/planning/team-task-allocation.md`
 
 **Deliverables**
 
-- Bản mới của `docs/current-project-structure.md`.
-- File `docs/team-task-allocation.md`.
+- Bản mới của `docs/architecture/current-project-structure.md`.
+- File `docs/planning/team-task-allocation.md`.
 - Bảng phân biệt rõ:
   - Builder chỉnh topology/diagram,
   - Calibration chỉnh tọa độ trên real map.
@@ -168,7 +168,7 @@
 ### Mốc 5 — Rehearsal
 
 - Mỗi nhóm trình bày đúng phần mình sở hữu.
-- Team lead dùng `docs/current-project-structure.md` làm xương sống cho buổi thuyết trình.
+- Team lead dùng `docs/architecture/current-project-structure.md` làm xương sống cho buổi thuyết trình.
 
 ## 5. Quy tắc handoff giữa nhóm
 

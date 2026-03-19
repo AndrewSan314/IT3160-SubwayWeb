@@ -23,14 +23,14 @@ async def health_check():
 
 @app.get("/")
 async def index():
-    return FileResponse(Path(settings.static_dir) / "index.html")
+    return FileResponse(Path(settings.static_dir) / "route-studio" / "index.html")
 
 
 @app.get("/calibrate")
 async def calibrate():
-    return FileResponse(Path(settings.static_dir) / "calibrate.html")
+    return FileResponse(Path(settings.static_dir) / "calibration" / "index.html")
 
 
 @app.get("/builder")
 async def builder():
-    return FileResponse(Path(settings.static_dir) / "builder.html")
+    return FileResponse(Path(settings.static_dir) / "builder" / "index.html")
