@@ -2889,6 +2889,12 @@
     },
     {
       "line_id": "c4",
+      "from_station_id": "chiang-kai-shek-memorial-hall",
+      "to_station_id": "taipower-building",
+      "travel_sec": 60
+    },
+    {
+      "line_id": "c4",
       "from_station_id": "dapinglin",
       "to_station_id": "qizhang",
       "travel_sec": 60
@@ -2897,6 +2903,12 @@
       "line_id": "c4",
       "from_station_id": "gongguan",
       "to_station_id": "wanlong",
+      "travel_sec": 60
+    },
+    {
+      "line_id": "c4",
+      "from_station_id": "jingmei",
+      "to_station_id": "dapinglin",
       "travel_sec": 60
     },
     {
@@ -3285,5 +3297,17 @@
     "mapping_file": "taipei_mrt_interactive_map.json",
     "diagram_width": 160.0,
     "diagram_height": 160.0
-  }
+  },
+  "walk_transfers": [
+    {
+      "from_station_id": "taipei-zoo",
+      "to_station_id": "taipei-zoo-station",
+      "duration_sec": 240
+    },
+    {
+      "from_station_id": "taipei-zoo-station",
+      "to_station_id": "taipei-zoo",
+      "duration_sec": 240
+    }
+  ]
 }

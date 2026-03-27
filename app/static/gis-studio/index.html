@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>GIS Route Studio</title>
+    <title>Taipei GIS Route Studio</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -15,78 +15,86 @@
       href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css"
     />
     <link rel="stylesheet" href="/static/shared/app-shell.css?v=20260327-gis-1" />
-    <link rel="stylesheet" href="/static/gis-studio/gis.css?v=20260327-gis-3" />
+    <link rel="stylesheet" href="/static/gis-studio/gis.css?v=20260327-gis-10" />
   </head>
-  <body>
+  <body class="gis-page">
     <div class="shell gis-shell">
-      <header class="hero">
-        <div>
-          <p class="eyebrow">GIS / MapLibre + QGIS Pipeline Ready</p>
-          <h1>Taipei GIS Route Studio</h1>
-          <p class="lede">
-            WebGL map for smooth pan/zoom. If QGIS GeoJSON exists, app uses it directly; otherwise
-            it falls back to projected coordinates from the legacy network data.
+      <aside class="panel gis-sidebar">
+        <div class="gis-sidebar-header">
+          <button id="toggleSidebarBtn" class="secondary sidebar-toggle-btn" type="button">Hide Sidebar</button>
+        </div>
+
+        <section>
+          <p class="eyebrow">GIS / MapLibre + QGIS</p>
+          <h1 class="gis-title">Taipei Route Navigator</h1>
+          <p class="hint">
+            Pick any two points on map. You can switch between nearest-station mode and best-route mode.
           </p>
-        </div>
-        <div class="hero-card">
-          <span class="stat-label">Data Source</span>
-          <strong id="gisSourceBadge">Loading...</strong>
-          <span class="stat-meta">/api/gis/network</span>
-        </div>
-      </header>
+          <div class="status-strip">
+            <span class="stat-label">Data Source</span>
+            <strong id="gisSourceBadge">Loading...</strong>
+            <span class="stat-meta">/api/gis/network</span>
+          </div>
+        </section>
 
-      <main class="workspace gis-workspace">
-        <aside class="panel gis-sidebar">
-          <section>
-            <h2>Pick Mode</h2>
-            <div class="mode-grid">
-              <button id="pickStartBtn" class="secondary mode-btn active" type="button">Pick Start Point</button>
-              <button id="pickEndBtn" class="secondary mode-btn" type="button">Pick End Point</button>
-            </div>
-            <div class="actions">
-              <button id="pickViaBtn" class="secondary" type="button">Pick VIA Station</button>
-              <button id="clearViaBtn" class="secondary" type="button">Clear Via</button>
-            </div>
-          </section>
+        <section>
+          <h2>Pick Mode</h2>
+          <div class="mode-grid">
+            <button id="pickStartBtn" class="secondary mode-btn active" type="button">Pick Start Point</button>
+            <button id="pickEndBtn" class="secondary mode-btn" type="button">Pick End Point</button>
+          </div>
+          <div class="actions">
+            <button id="pickViaBtn" class="secondary" type="button">Pick VIA Station</button>
+            <button id="clearViaBtn" class="secondary" type="button">Clear Via</button>
+          </div>
+        </section>
 
-          <section>
-            <h2>Selection</h2>
-            <div id="selectionCard" class="summary empty">Click anywhere on map for start/end points.</div>
-          </section>
+        <section>
+          <h2>Selection</h2>
+          <div id="selectionCard" class="summary empty">Click anywhere on map for start/end points.</div>
+        </section>
 
-          <section>
-            <h2>Actions</h2>
-            <div class="actions">
-              <button id="findRouteBtn" class="primary" type="button">Find Route</button>
-              <button id="resetBtn" class="secondary" type="button">Reset</button>
-            </div>
-            <p id="statusText" class="status">Loading GIS network...</p>
-          </section>
+        <section>
+          <h2>Actions</h2>
+          <select id="routeModeSelect" class="control-select">
+            <option value="best_route">Best Route</option>
+            <option value="nearest_station">Nearest Station</option>
+          </select>
+          <div class="actions">
+            <button id="findRouteBtn" class="primary" type="button">Find Route</button>
+            <button id="resetBtn" class="secondary" type="button">Reset</button>
+          </div>
+          <p id="statusText" class="status">Loading GIS network...</p>
+        </section>
 
-          <section>
-            <h2>Route Summary</h2>
-            <div id="summaryCard" class="summary empty">No route yet.</div>
-          </section>
+        <section>
+          <h2>Route Summary</h2>
+          <div id="summaryCard" class="summary empty">No route yet.</div>
+        </section>
 
-          <section>
-            <h2>Tools</h2>
-            <div class="actions">
-              <button class="secondary" type="button" onclick="window.location.href='/'">Open Classic Studio</button>
-              <button class="secondary" type="button" onclick="window.location.href='/builder'">Open Graph Builder</button>
-            </div>
-          </section>
-        </aside>
-
-        <section class="panel map-panel gis-map-panel">
-          <div id="gisMap" class="gis-map" role="img" aria-label="Taipei GIS route map"></div>
+        <section>
+          <h2>Route Steps</h2>
           <ol id="stepsList" class="steps">
             <li class="empty">Pick start and end points, then calculate route.</li>
           </ol>
         </section>
-      </main>
+
+        <section>
+          <h2>Tools</h2>
+          <div class="actions">
+            <button class="secondary" type="button" onclick="window.location.href='/'">Open Classic Studio</button>
+            <button class="secondary" type="button" onclick="window.location.href='/builder'">Open Graph Builder</button>
+          </div>
+        </section>
+      </aside>
+
+      <section class="panel map-panel gis-map-panel">
+        <button id="openSidebarBtn" class="secondary open-sidebar-btn" type="button">Show Sidebar</button>
+        <div id="gisMap" class="gis-map" role="img" aria-label="Taipei GIS route map"></div>
+      </section>
     </div>
 
     <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
-    <script src="/static/gis-studio/gis.js?v=20260327-gis-3"></script>
+    <script src="/static/gis-studio/gis.js?v=20260327-gis-10"></script>
   </body>
 </html>

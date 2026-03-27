@@ -24,6 +24,11 @@ def build_gis_payload(
         source = "qgis_geojson"
         stations_geojson = qgis_stations
         lines_geojson = qgis_lines
+        bounds = _resolve_qgis_bounds(
+            stations_geojson=stations_geojson,
+            lines_geojson=lines_geojson,
+            fallback_bounds=fallback_bounds,
+        )
     else:
         source = "fallback_projected"
         stations_geojson, lines_geojson = _build_fallback_geojson(
@@ -32,14 +37,33 @@ def build_gis_payload(
             map_height,
             fallback_bounds,
         )
+        # Keep a stable city-wide extent in fallback mode to avoid over-tight map clipping.
+        bounds = list(fallback_bounds)
 
-    bounds = _compute_geojson_bounds(stations_geojson)
     return {
         "source": source,
         "bounds": bounds,
         "stations": stations_geojson,
         "lines": lines_geojson,
     }
+
+
+def _resolve_qgis_bounds(
+    stations_geojson: dict[str, Any],
+    lines_geojson: dict[str, Any],
+    fallback_bounds: tuple[float, float, float, float],
+) -> list[float]:
+    # Prioritize line geometry for map extent because station files may contain
+    # partially projected fallback points during migration.
+    lines_bounds = _compute_geojson_bounds_or_none(lines_geojson)
+    if lines_bounds is not None:
+        return lines_bounds
+
+    stations_bounds = _compute_geojson_bounds_or_none(stations_geojson)
+    if stations_bounds is not None:
+        return stations_bounds
+
+    return list(fallback_bounds)
 
 
 def _load_geojson(path: Path) -> dict[str, Any] | None:
@@ -158,6 +182,13 @@ def _pixel_to_lonlat(
 
 
 def _compute_geojson_bounds(payload: dict[str, Any]) -> list[float]:
+    bounds = _compute_geojson_bounds_or_none(payload)
+    if bounds is None:
+        return [121.45, 24.95, 121.65, 25.15]
+    return bounds
+
+
+def _compute_geojson_bounds_or_none(payload: dict[str, Any]) -> list[float] | None:
     min_lon = float("inf")
     min_lat = float("inf")
     max_lon = float("-inf")
@@ -172,7 +203,7 @@ def _compute_geojson_bounds(payload: dict[str, Any]) -> list[float]:
             max_lat = max(max_lat, lat)
 
     if min_lon == float("inf"):
-        return [121.45, 24.95, 121.65, 25.15]
+        return None
     return [min_lon, min_lat, max_lon, max_lat]
 
 

@@ -10,6 +10,7 @@ from app.config import get_settings
 from app.services.calibration_store import save_station_positions
 from app.services.gis_loader import build_gis_payload
 from app.services.gis_route import extract_station_coordinates
+from app.services.gis_route import haversine_distance_m
 from app.services.gis_route import nearest_station
 from app.services.gis_route import walking_time_sec
 from app.services.subway_network_store import load_network_definition
@@ -20,6 +21,12 @@ from app.services.runtime import refresh_runtime_caches
 
 router = APIRouter(prefix="/api", tags=["subway"])
 settings = get_settings()
+ROUTE_MODE_ALIASES = {
+    "best_route": "best_route",
+    "best": "best_route",
+    "nearest_station": "nearest_station",
+    "nearest": "nearest_station",
+}
 
 
 class RouteRequest(BaseModel):
@@ -39,6 +46,7 @@ class PointRouteRequest(BaseModel):
     start_preferred_line_ids: list[str] = Field(default_factory=list)
     end_preferred_line_ids: list[str] = Field(default_factory=list)
     via_station_ids: list[str] = Field(default_factory=list)
+    route_mode: str = "best_route"
 
 
 class GisPointRouteRequest(BaseModel):
@@ -48,6 +56,8 @@ class GisPointRouteRequest(BaseModel):
     end_lat: float
     walking_m_per_sec: float = 1.3
     via_station_ids: list[str] = Field(default_factory=list)
+    route_mode: str = "best_route"
+    candidate_limit: int | None = 12
 
 
 class CalibrationStationPayload(BaseModel):
@@ -85,6 +95,28 @@ class BuilderNetworkSaveRequest(BaseModel):
     station_lines: list[BuilderStationLinePayload]
     default_travel_sec: int = 90
     default_transfer_sec: int = 180
+
+
+def _normalize_route_mode(route_mode: str) -> str:
+    normalized = ROUTE_MODE_ALIASES.get(route_mode.strip().lower())
+    if normalized is None:
+        raise HTTPException(
+            status_code=400,
+            detail="route_mode must be one of: best_route, nearest_station",
+        )
+    return normalized
+
+
+def _resolve_candidate_limit(candidate_limit: int | None, fallback: int = 12) -> int:
+    if candidate_limit is None:
+        return fallback
+    if candidate_limit <= 0:
+        raise HTTPException(status_code=400, detail="candidate_limit must be > 0")
+    return candidate_limit
+
+
+def _has_in_network_walk_step(route_result) -> bool:
+    return any(step.kind == "walk" for step in route_result.steps)
 
 
 def _network_payload() -> dict:
@@ -308,6 +340,8 @@ async def get_gis_network():
 async def get_gis_route_for_points(request: GisPointRouteRequest):
     if request.walking_m_per_sec <= 0:
         raise HTTPException(status_code=400, detail="walking_m_per_sec must be > 0")
+    route_mode = _normalize_route_mode(request.route_mode)
+    candidate_limit = _resolve_candidate_limit(request.candidate_limit)
 
     network = get_subway_network()
     for via_station_id in request.via_station_ids:
@@ -332,25 +366,124 @@ async def get_gis_route_for_points(request: GisPointRouteRequest):
         raise HTTPException(status_code=500, detail="GIS station coordinates are unavailable")
 
     try:
-        selected_start_station_id, access_walk_distance_m = nearest_station(
-            request.start_lon,
-            request.start_lat,
-            station_coords_by_id,
-        )
-        selected_end_station_id, egress_walk_distance_m = nearest_station(
-            request.end_lon,
-            request.end_lat,
-            station_coords_by_id,
-        )
-
         engine = get_route_engine()
-        route_result = engine.find_route_through_stations(
-            [
+        if route_mode == "nearest_station":
+            selected_start_station_id, access_walk_distance_m = nearest_station(
+                request.start_lon,
+                request.start_lat,
+                station_coords_by_id,
+            )
+            selected_end_station_id, egress_walk_distance_m = nearest_station(
+                request.end_lon,
+                request.end_lat,
+                station_coords_by_id,
+            )
+            route_station_ids = [
                 selected_start_station_id,
                 *request.via_station_ids,
                 selected_end_station_id,
             ]
-        )
+            try:
+                route_result = engine.find_route_through_stations(
+                    route_station_ids,
+                    allow_walk_transfers=False,
+                )
+            except ValueError:
+                route_result = engine.find_route_through_stations(
+                    route_station_ids,
+                    allow_walk_transfers=True,
+                )
+        else:
+            start_candidates = sorted(
+                (
+                    (
+                        station_id,
+                        haversine_distance_m(
+                            request.start_lat,
+                            request.start_lon,
+                            station_lat,
+                            station_lon,
+                        ),
+                    )
+                    for station_id, (station_lon, station_lat) in station_coords_by_id.items()
+                ),
+                key=lambda item: item[1],
+            )[:candidate_limit]
+            end_candidates = sorted(
+                (
+                    (
+                        station_id,
+                        haversine_distance_m(
+                            request.end_lat,
+                            request.end_lon,
+                            station_lat,
+                            station_lon,
+                        ),
+                    )
+                    for station_id, (station_lon, station_lat) in station_coords_by_id.items()
+                ),
+                key=lambda item: item[1],
+            )[:candidate_limit]
+
+            def _select_best_route(allow_walk_transfers: bool):
+                best_route = None
+                best_score = None
+                for start_station_id, start_distance_m in start_candidates:
+                    for end_station_id, end_distance_m in end_candidates:
+                        try:
+                            candidate_route = engine.find_route_through_stations(
+                                [
+                                    start_station_id,
+                                    *request.via_station_ids,
+                                    end_station_id,
+                                ],
+                                allow_walk_transfers=allow_walk_transfers,
+                            )
+                        except ValueError:
+                            continue
+
+                        if not any(step.kind == "ride" for step in candidate_route.steps):
+                            continue
+                        if not allow_walk_transfers and _has_in_network_walk_step(candidate_route):
+                            continue
+
+                        access_time_sec = walking_time_sec(start_distance_m, request.walking_m_per_sec)
+                        egress_time_sec = walking_time_sec(end_distance_m, request.walking_m_per_sec)
+                        total_journey_time_sec = candidate_route.total_time_sec + access_time_sec + egress_time_sec
+                        total_walking_time_sec = (
+                            candidate_route.walking_time_sec + access_time_sec + egress_time_sec
+                        )
+                        score = (
+                            total_journey_time_sec,
+                            total_walking_time_sec,
+                            candidate_route.transfer_count,
+                            candidate_route.stop_count,
+                        )
+                        if best_score is None or score < best_score:
+                            best_score = score
+                            best_route = (
+                                start_station_id,
+                                end_station_id,
+                                start_distance_m,
+                                end_distance_m,
+                                candidate_route,
+                            )
+                return best_route
+
+            best_route = _select_best_route(allow_walk_transfers=False)
+            if best_route is None:
+                best_route = _select_best_route(allow_walk_transfers=True)
+
+            if best_route is None:
+                raise ValueError("No route found for the selected points")
+
+            (
+                selected_start_station_id,
+                selected_end_station_id,
+                access_walk_distance_m,
+                egress_walk_distance_m,
+                route_result,
+            ) = best_route
     except ValueError as error:
         raise HTTPException(status_code=404, detail=str(error)) from error
 
@@ -361,6 +494,7 @@ async def get_gis_route_for_points(request: GisPointRouteRequest):
 
     return {
         "source": gis_payload["source"],
+        "route_mode": route_mode,
         "start_point": {"lon": request.start_lon, "lat": request.start_lat},
         "end_point": {"lon": request.end_lon, "lat": request.end_lat},
         "selected_start_station": {
@@ -420,6 +554,10 @@ async def get_route(request: RouteRequest):
 
 @router.post("/route/points")
 async def get_route_for_points(request: PointRouteRequest):
+    if request.walking_seconds_per_pixel <= 0:
+        raise HTTPException(status_code=400, detail="walking_seconds_per_pixel must be > 0")
+    route_mode = _normalize_route_mode(request.route_mode)
+
     engine = get_route_engine()
     network = get_subway_network()
     try:
@@ -436,6 +574,7 @@ async def get_route_for_points(request: PointRouteRequest):
             start_preferred_line_ids=request.start_preferred_line_ids,
             end_preferred_line_ids=request.end_preferred_line_ids,
             via_station_ids=request.via_station_ids,
+            route_mode=route_mode,
         )
     except ValueError as error:
         raise HTTPException(status_code=404, detail=str(error)) from error
@@ -445,6 +584,7 @@ async def get_route_for_points(request: PointRouteRequest):
         _station_lookup_payload(),
         network,
     )
+    result["route_mode"] = route_mode
     return result
 
 

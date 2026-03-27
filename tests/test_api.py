@@ -25,6 +25,7 @@ from app.api.routes import get_route_for_points
 from app.api.routes import get_route
 from app.api.routes import save_builder_network
 from app.api.routes import save_calibration
+from app.config import get_settings
 from app.main import health_check
 
 
@@ -58,6 +59,17 @@ class ApiTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(body["stations"]["type"], "FeatureCollection")
         self.assertEqual(body["lines"]["type"], "FeatureCollection")
         self.assertGreaterEqual(len(body["stations"]["features"]), 150)
+        if body["source"] == "fallback_projected":
+            settings = get_settings()
+            self.assertEqual(
+                body["bounds"],
+                [
+                    settings.fallback_min_lon,
+                    settings.fallback_min_lat,
+                    settings.fallback_max_lon,
+                    settings.fallback_max_lat,
+                ],
+            )
 
     async def test_gis_route_points_endpoint_returns_station_route(self):
         body = await get_gis_route_for_points(
@@ -73,8 +85,25 @@ class ApiTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("selected_start_station", body)
         self.assertIn("selected_end_station", body)
         self.assertIn("route", body)
+        self.assertEqual(body["route_mode"], "best_route")
         self.assertGreaterEqual(body["total_journey_time_sec"], body["route"]["total_time_sec"])
         self.assertGreater(len(body["route"]["station_ids"]), 1)
+
+    async def test_gis_route_points_prefers_subway_path_without_in_network_walk(self):
+        body = await get_gis_route_for_points(
+            GisPointRouteRequest(
+                start_lon=121.5205,
+                start_lat=25.0419,
+                end_lon=121.5666,
+                end_lat=25.0330,
+                walking_m_per_sec=1.3,
+                route_mode="best_route",
+                candidate_limit=12,
+            )
+        )
+
+        self.assertGreater(len(body["route"]["steps"]), 0)
+        self.assertTrue(all(step["kind"] != "walk" for step in body["route"]["steps"]))
 
     async def test_builder_network_endpoint_returns_raw_station_lines(self):
         body = await get_builder_network()
@@ -104,6 +133,42 @@ class ApiTests(unittest.IsolatedAsyncioTestCase):
         self.assertGreater(len(body["steps"]), 0)
         self.assertTrue(any(step["kind"] == "ride" for step in body["steps"]))
 
+    async def test_route_endpoint_connects_gongguan_to_ximen(self):
+        network = await get_network()
+        station_lookup = {
+            station["name"]: station["id"]
+            for station in network["stations"]
+        }
+
+        body = await get_route(
+            RouteRequest(
+                start_station_id=station_lookup["Gongguan"],
+                end_station_id=station_lookup["Ximen"],
+            )
+        )
+
+        self.assertEqual(body["station_ids"][0], station_lookup["Gongguan"])
+        self.assertEqual(body["station_ids"][-1], station_lookup["Ximen"])
+        self.assertGreater(body["total_time_sec"], 0)
+
+    async def test_route_endpoint_connects_taipei_zoo_station_to_city(self):
+        network = await get_network()
+        station_lookup = {
+            station["name"]: station["id"]
+            for station in network["stations"]
+        }
+
+        body = await get_route(
+            RouteRequest(
+                start_station_id=station_lookup["Taipei Zoo Station"],
+                end_station_id=station_lookup["Ximen"],
+            )
+        )
+
+        self.assertEqual(body["station_ids"][0], station_lookup["Taipei Zoo Station"])
+        self.assertEqual(body["station_ids"][-1], station_lookup["Ximen"])
+        self.assertIn(station_lookup["Taipei Zoo"], body["station_ids"])
+
     async def test_point_route_endpoint_returns_best_station_pair(self):
         network = await get_network()
         stations_by_name = {
@@ -129,6 +194,7 @@ class ApiTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(body["selected_end_station"]["id"], end_station["id"])
         self.assertEqual(body["route"]["station_ids"][0], start_station["id"])
         self.assertEqual(body["route"]["station_ids"][-1], end_station["id"])
+        self.assertEqual(body["route_mode"], "best_route")
 
     async def test_point_route_endpoint_passes_via_stations_to_engine(self):
         network_payload = await get_network()
@@ -169,11 +235,59 @@ class ApiTests(unittest.IsolatedAsyncioTestCase):
                     end_x=1,
                     end_y=1,
                     via_station_ids=[via_station_id],
+                    route_mode="nearest_station",
                 )
             )
 
         self.assertEqual(captured["via_station_ids"], [via_station_id])
+        self.assertEqual(captured["route_mode"], "nearest_station")
         self.assertEqual(body["route"]["station_ids"], [start_station_id, via_station_id, end_station_id])
+        self.assertEqual(body["route_mode"], "nearest_station")
+
+    async def test_point_route_endpoint_rejects_non_positive_walking_seconds_per_pixel(self):
+        with self.assertRaises(HTTPException) as context:
+            await get_route_for_points(
+                PointRouteRequest(
+                    start_x=0,
+                    start_y=0,
+                    end_x=1,
+                    end_y=1,
+                    walking_seconds_per_pixel=0,
+                )
+            )
+
+        self.assertEqual(context.exception.status_code, 400)
+        self.assertIn("walking_seconds_per_pixel", context.exception.detail)
+
+    async def test_point_route_endpoint_rejects_unknown_route_mode(self):
+        with self.assertRaises(HTTPException) as context:
+            await get_route_for_points(
+                PointRouteRequest(
+                    start_x=0,
+                    start_y=0,
+                    end_x=1,
+                    end_y=1,
+                    route_mode="unknown",
+                )
+            )
+
+        self.assertEqual(context.exception.status_code, 400)
+        self.assertIn("route_mode", context.exception.detail)
+
+    async def test_gis_point_route_endpoint_rejects_unknown_route_mode(self):
+        with self.assertRaises(HTTPException) as context:
+            await get_gis_route_for_points(
+                GisPointRouteRequest(
+                    start_lon=121.5010,
+                    start_lat=25.0420,
+                    end_lon=121.5515,
+                    end_lat=25.0238,
+                    route_mode="unknown",
+                )
+            )
+
+        self.assertEqual(context.exception.status_code, 400)
+        self.assertIn("route_mode", context.exception.detail)
 
     async def test_save_calibration_calls_store_and_refreshes_cache(self):
         request = CalibrationSaveRequest(
