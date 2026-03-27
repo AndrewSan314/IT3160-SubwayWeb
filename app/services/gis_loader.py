@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import json
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
 from app.domain.models import SubwayNetwork
+from app.services.walk_network import WalkGraph
+from app.services.walk_network import build_walk_graph
 
 
 def build_gis_payload(
@@ -13,42 +16,91 @@ def build_gis_payload(
     map_width: float,
     map_height: float,
     fallback_bounds: tuple[float, float, float, float],
+    include_station_access_points: bool = True,
+    include_walk_network: bool = True,
 ) -> dict[str, Any]:
     stations_path = qgis_geojson_dir / "stations.geojson"
     lines_path = qgis_geojson_dir / "lines.geojson"
+    station_access_points_path = qgis_geojson_dir / "station_access_points.geojson"
+    walk_network_path = qgis_geojson_dir / "walk_network.geojson"
 
     qgis_stations = _load_geojson(stations_path)
     qgis_lines = _load_geojson(lines_path)
+    qgis_station_access_points = (
+        _load_geojson(station_access_points_path)
+        if include_station_access_points
+        else None
+    )
+    qgis_walk_network = _load_geojson(walk_network_path) if include_walk_network else None
 
-    if _is_valid_station_geojson(qgis_stations, network) and _is_valid_geojson(qgis_lines):
-        source = "qgis_geojson"
-        stations_geojson = qgis_stations
-        lines_geojson = qgis_lines
+    fallback_stations_geojson, fallback_lines_geojson = _build_fallback_geojson(
+        network,
+        map_width,
+        map_height,
+        fallback_bounds,
+    )
+
+    if _is_valid_geojson(qgis_stations):
+        stations_geojson = _merge_station_geojson(
+            qgis_stations,
+            fallback_stations_geojson,
+            network,
+        )
+        lines_geojson = qgis_lines if _is_valid_geojson(qgis_lines) else fallback_lines_geojson
+        source = (
+            "qgis_geojson"
+            if _is_valid_station_geojson(qgis_stations, network) and _is_valid_geojson(qgis_lines)
+            else "qgis_geojson_merged"
+        )
     else:
         source = "fallback_projected"
-        stations_geojson, lines_geojson = _build_fallback_geojson(
-            network,
-            map_width,
-            map_height,
-            fallback_bounds,
-        )
+        stations_geojson = fallback_stations_geojson
+        lines_geojson = fallback_lines_geojson
 
     bounds = _compute_geojson_bounds(stations_geojson)
-    return {
+    payload = {
         "source": source,
         "bounds": bounds,
         "stations": stations_geojson,
         "lines": lines_geojson,
     }
 
+    if include_station_access_points:
+        payload["station_access_points"] = _resolve_station_access_points(
+            qgis_station_access_points,
+            stations_geojson,
+        )
+    if include_walk_network:
+        payload["walk_network"] = qgis_walk_network if _is_valid_geojson(qgis_walk_network) else None
+    return payload
+
 
 def _load_geojson(path: Path) -> dict[str, Any] | None:
+    signature = _path_signature(path)
+    return _load_geojson_cached(str(path), signature)
+
+
+def get_cached_walk_graph(qgis_geojson_dir: Path) -> WalkGraph:
+    walk_network_path = qgis_geojson_dir / "walk_network.geojson"
+    signature = _path_signature(walk_network_path)
+    return _load_walk_graph_cached(str(walk_network_path), signature)
+
+
+@lru_cache(maxsize=16)
+def _load_geojson_cached(path_str: str, signature: str) -> dict[str, Any] | None:
+    del signature
+    path = Path(path_str)
     if not path.exists():
         return None
     try:
         return json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError:
         return None
+
+
+@lru_cache(maxsize=4)
+def _load_walk_graph_cached(path_str: str, signature: str) -> WalkGraph:
+    return build_walk_graph(_load_geojson_cached(path_str, signature))
 
 
 def _is_valid_geojson(payload: dict[str, Any] | None) -> bool:
@@ -69,6 +121,30 @@ def _is_valid_station_geojson(payload: dict[str, Any] | None, network: SubwayNet
     }
     required_station_ids = set(network.stations.keys())
     return required_station_ids.issubset(available_station_ids)
+
+
+def _merge_station_geojson(
+    qgis_stations: dict[str, Any],
+    fallback_stations_geojson: dict[str, Any],
+    network: SubwayNetwork,
+) -> dict[str, Any]:
+    del network
+    merged_features: list[dict[str, Any]] = []
+    existing_station_ids: set[str] = set()
+
+    for feature in qgis_stations.get("features", []):
+        station_id = feature.get("properties", {}).get("id")
+        if station_id:
+            existing_station_ids.add(str(station_id))
+        merged_features.append(feature)
+
+    for feature in fallback_stations_geojson.get("features", []):
+        station_id = feature.get("properties", {}).get("id")
+        if not station_id or str(station_id) in existing_station_ids:
+            continue
+        merged_features.append(feature)
+
+    return {"type": "FeatureCollection", "features": merged_features}
 
 
 def _build_fallback_geojson(
@@ -144,6 +220,40 @@ def _build_fallback_geojson(
     )
 
 
+def _resolve_station_access_points(
+    station_access_points_geojson: dict[str, Any] | None,
+    stations_geojson: dict[str, Any],
+) -> dict[str, Any]:
+    if _is_valid_geojson(station_access_points_geojson):
+        return station_access_points_geojson
+
+    fallback_features: list[dict[str, Any]] = []
+    for feature in stations_geojson.get("features", []):
+        station_id = feature.get("properties", {}).get("id")
+        coordinates = feature.get("geometry", {}).get("coordinates")
+        if (
+            not station_id
+            or not isinstance(coordinates, list)
+            or len(coordinates) < 2
+        ):
+            continue
+        fallback_features.append(
+            {
+                "type": "Feature",
+                "geometry": {
+                    "type": "Point",
+                    "coordinates": [float(coordinates[0]), float(coordinates[1])],
+                },
+                "properties": {
+                    "station_id": str(station_id),
+                    "name": feature.get("properties", {}).get("name"),
+                },
+            }
+        )
+
+    return {"type": "FeatureCollection", "features": fallback_features}
+
+
 def _pixel_to_lonlat(
     x: float,
     y: float,
@@ -184,3 +294,10 @@ def _iter_coordinates(node: Any):
         return
     for item in node:
         yield from _iter_coordinates(item)
+
+
+def _path_signature(path: Path) -> str:
+    if not path.exists():
+        return f"{path}:missing"
+    stat = path.stat()
+    return f"{path}:{stat.st_size}:{stat.st_mtime_ns}"

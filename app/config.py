@@ -10,6 +10,8 @@ DEFAULT_DATA_FILE = PROJECT_ROOT / "app" / "data" / "subway_network.json"
 DEFAULT_POSITION_FILE = (
     PROJECT_ROOT / "app" / "data" / "station_positions_taipei_vector_map_2022.json"
 )
+DEFAULT_OSM_ENRICHMENT_FILE = PROJECT_ROOT / "app" / "data" / "subway_osm_enrichment.json"
+DEFAULT_GIS_MBTILES_FILE = PROJECT_ROOT / "OUTPUT_FILE.mbtiles"
 
 
 def _env_flag(name: str, default: bool = False) -> bool:
@@ -26,6 +28,9 @@ class Settings:
     data_file: Path = Path(os.getenv("SUBWAY_JSON_DATA_FILE", str(DEFAULT_DATA_FILE)))
     station_positions_file: Path = Path(
         os.getenv("SUBWAY_STATION_POSITIONS_FILE", str(DEFAULT_POSITION_FILE))
+    )
+    osm_enrichment_file: Path = Path(
+        os.getenv("SUBWAY_OSM_ENRICHMENT_FILE", str(DEFAULT_OSM_ENRICHMENT_FILE))
     )
     static_dir: Path = PROJECT_ROOT / "app" / "static"
     map_dir: Path = PROJECT_ROOT / "map"
@@ -54,6 +59,9 @@ class Settings:
     )
     qgis_geojson_dir: Path = Path(
         os.getenv("SUBWAY_QGIS_GEOJSON_DIR", str(PROJECT_ROOT / "app" / "data" / "gis"))
+    )
+    gis_mbtiles_file: Path = Path(
+        os.getenv("SUBWAY_GIS_MBTILES_FILE", str(DEFAULT_GIS_MBTILES_FILE))
     )
     fallback_min_lon: float = float(os.getenv("SUBWAY_FALLBACK_MIN_LON", "121.36"))
     fallback_min_lat: float = float(os.getenv("SUBWAY_FALLBACK_MIN_LAT", "24.90"))

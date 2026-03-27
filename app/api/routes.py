@@ -5,13 +5,19 @@ from pydantic import Field
 
 from fastapi import APIRouter
 from fastapi import HTTPException
+from fastapi.responses import Response
 
 from app.config import get_settings
 from app.services.calibration_store import save_station_positions
 from app.services.gis_loader import build_gis_payload
+from app.services.gis_loader import get_cached_walk_graph
 from app.services.gis_route import extract_station_coordinates
-from app.services.gis_route import nearest_station
+from app.services.gis_route_geometry import build_ride_path_features
+from app.services.gis_route import build_walk_graph
+from app.services.gis_route import find_nearest_station_by_walk
 from app.services.gis_route import walking_time_sec
+from app.services.mbtiles import get_mbtiles_metadata
+from app.services.mbtiles import read_mbtiles_tile
 from app.services.subway_network_store import load_network_definition
 from app.services.subway_network_store import save_network_definition
 from app.services.runtime import get_network as get_subway_network
@@ -295,12 +301,42 @@ async def get_gis_network():
         settings.fallback_max_lon,
         settings.fallback_max_lat,
     )
-    return build_gis_payload(
+    payload = build_gis_payload(
         network=network,
         qgis_geojson_dir=settings.qgis_geojson_dir,
         map_width=settings.map_width,
         map_height=settings.map_height,
         fallback_bounds=fallback_bounds,
+        include_station_access_points=False,
+        include_walk_network=False,
+    )
+    basemap = get_mbtiles_metadata(settings.gis_mbtiles_file)
+    if basemap is None:
+        payload["basemap"] = {
+            "enabled": False,
+            "type": "osm_raster_fallback",
+            "bounds": payload["bounds"],
+        }
+        return payload
+
+    payload["basemap"] = {
+        **basemap,
+        "tiles_url": "/api/gis/basemap/tiles/{z}/{x}/{y}",
+    }
+    return payload
+
+
+@router.get("/gis/basemap/tiles/{z}/{x}/{y}")
+async def get_gis_basemap_tile(z: int, x: int, y: int):
+    tile = read_mbtiles_tile(settings.gis_mbtiles_file, z, x, y)
+    if tile is None:
+        raise HTTPException(status_code=404, detail="Basemap tile not found")
+
+    tile_data, media_type = tile
+    return Response(
+        content=tile_data,
+        media_type=media_type,
+        headers={"Cache-Control": "public, max-age=86400"},
     )
 
 
@@ -326,22 +362,38 @@ async def get_gis_route_for_points(request: GisPointRouteRequest):
         map_width=settings.map_width,
         map_height=settings.map_height,
         fallback_bounds=fallback_bounds,
+        include_walk_network=False,
     )
     station_coords_by_id = extract_station_coordinates(gis_payload["stations"])
     if not station_coords_by_id:
         raise HTTPException(status_code=500, detail="GIS station coordinates are unavailable")
 
     try:
-        selected_start_station_id, access_walk_distance_m = nearest_station(
+        walk_graph = (
+            build_walk_graph(gis_payload.get("walk_network"))
+            if gis_payload.get("walk_network") is not None
+            else get_cached_walk_graph(settings.qgis_geojson_dir)
+        )
+        start_walk_result = find_nearest_station_by_walk(
             request.start_lon,
             request.start_lat,
             station_coords_by_id,
+            gis_payload.get("station_access_points"),
+            None,
+            walk_graph=walk_graph,
         )
-        selected_end_station_id, egress_walk_distance_m = nearest_station(
+        end_walk_result = find_nearest_station_by_walk(
             request.end_lon,
             request.end_lat,
             station_coords_by_id,
+            gis_payload.get("station_access_points"),
+            None,
+            walk_graph=walk_graph,
         )
+        selected_start_station_id = start_walk_result.station_id
+        selected_end_station_id = end_walk_result.station_id
+        access_walk_distance_m = start_walk_result.distance_m
+        egress_walk_distance_m = end_walk_result.distance_m
 
         engine = get_route_engine()
         route_result = engine.find_route_through_stations(
@@ -358,6 +410,12 @@ async def get_gis_route_for_points(request: GisPointRouteRequest):
     egress_walk_time_sec = walking_time_sec(egress_walk_distance_m, request.walking_m_per_sec)
     station_lookup = _station_lookup_payload()
     route_payload = _enrich_route_payload(route_result.to_dict(), station_lookup, network)
+    ride_path_features = build_ride_path_features(
+        route_steps=route_payload.get("steps", []),
+        station_coords_by_id=station_coords_by_id,
+        stations_geojson=gis_payload.get("stations"),
+        lines_geojson=gis_payload.get("lines"),
+    )
 
     return {
         "source": gis_payload["source"],
@@ -368,10 +426,20 @@ async def get_gis_route_for_points(request: GisPointRouteRequest):
             "lon": station_coords_by_id[selected_start_station_id][0],
             "lat": station_coords_by_id[selected_start_station_id][1],
         },
+        "selected_start_access_point": {
+            "name": start_walk_result.access_point_name,
+            "lon": start_walk_result.access_point_coordinate[0],
+            "lat": start_walk_result.access_point_coordinate[1],
+        },
         "selected_end_station": {
             **station_lookup[selected_end_station_id],
             "lon": station_coords_by_id[selected_end_station_id][0],
             "lat": station_coords_by_id[selected_end_station_id][1],
+        },
+        "selected_end_access_point": {
+            "name": end_walk_result.access_point_name,
+            "lon": end_walk_result.access_point_coordinate[0],
+            "lat": end_walk_result.access_point_coordinate[1],
         },
         "via_stations": [
             {
@@ -381,10 +449,25 @@ async def get_gis_route_for_points(request: GisPointRouteRequest):
             }
             for station_id in request.via_station_ids
         ],
+        "access_walk_path": {
+            "type": "LineString",
+            "coordinates": [
+                [path_lon, path_lat]
+                for path_lon, path_lat in start_walk_result.path_coordinates
+            ],
+        },
+        "egress_walk_path": {
+            "type": "LineString",
+            "coordinates": [
+                [path_lon, path_lat]
+                for path_lon, path_lat in end_walk_result.path_coordinates
+            ],
+        },
         "access_walk_distance_m": round(access_walk_distance_m, 1),
         "egress_walk_distance_m": round(egress_walk_distance_m, 1),
         "access_walk_time_sec": access_walk_time_sec,
         "egress_walk_time_sec": egress_walk_time_sec,
+        "ride_path_features": ride_path_features,
         "total_journey_time_sec": (
             route_payload["total_time_sec"] + access_walk_time_sec + egress_walk_time_sec
         ),

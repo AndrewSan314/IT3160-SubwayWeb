@@ -60,13 +60,21 @@ async function init() {
     initializeMap();
     renderAll();
 
-    elements.gisSourceBadge.textContent = state.gis.source === "qgis_geojson"
+    const networkSourceLabel = state.gis.source?.startsWith("qgis_geojson")
       ? "QGIS GeoJSON"
       : "Fallback Projection";
+    const baseMapLabel = state.gis.basemap?.enabled
+      ? "MBTiles Raster"
+      : "OSM Raster";
+    elements.gisSourceBadge.textContent = `${networkSourceLabel} + ${baseMapLabel}`;
     setStatus(
-      state.gis.source === "qgis_geojson"
-        ? "GIS source loaded from QGIS export."
-        : "Fallback coordinates in use. Put QGIS exports into app/data/gis for true geospatial accuracy.",
+      state.gis.source?.startsWith("qgis_geojson")
+        ? state.gis.basemap?.enabled
+          ? "GIS source loaded from QGIS export with local MBTiles basemap."
+          : "GIS source loaded from QGIS export with OSM fallback basemap."
+        : state.gis.basemap?.enabled
+          ? "Fallback coordinates in use with local MBTiles basemap."
+          : "Fallback coordinates in use. Put QGIS exports into app/data/gis for true geospatial accuracy.",
     );
   } catch (error) {
     console.error(error);
@@ -96,25 +104,49 @@ function bindEvents() {
   elements.resetBtn.addEventListener("click", resetAll);
 }
 
+function buildBasemapSource() {
+  const basemap = state.gis?.basemap;
+  if (basemap?.enabled && basemap.tiles_url) {
+    return {
+      type: "raster",
+      tiles: [basemap.tiles_url],
+      tileSize: Number(basemap.tile_size || 256),
+      minzoom: Number(basemap.minzoom || 0),
+      maxzoom: Number(basemap.maxzoom || 22),
+      attribution: basemap.name || "Local MBTiles",
+    };
+  }
+
+  return {
+    type: "raster",
+    tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
+    tileSize: 256,
+    attribution: "(c) OpenStreetMap contributors",
+  };
+}
+
 function initializeMap() {
+  const basemapSource = buildBasemapSource();
   state.map = new maplibregl.Map({
     container: "gisMap",
     style: {
       version: 8,
       glyphs: "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf",
       sources: {
-        osm: {
-          type: "raster",
-          tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
-          tileSize: 256,
-          attribution: "© OpenStreetMap contributors",
-        },
+        basemap: basemapSource,
       },
       layers: [
         {
-          id: "osm-base",
+          id: "basemap-background",
+          type: "background",
+          paint: {
+            "background-color": "#f4f1e8",
+          },
+        },
+        {
+          id: "basemap-raster",
           type: "raster",
-          source: "osm",
+          source: "basemap",
         },
       ],
     },
@@ -150,13 +182,32 @@ function handleMapLoad() {
   });
 
   state.map.addLayer({
+    id: "metro-lines-casing",
+    type: "line",
+    source: SOURCE_IDS.lines,
+    layout: {
+      "line-cap": "round",
+      "line-join": "round",
+    },
+    paint: {
+      "line-color": "rgba(15,23,42,0.2)",
+      "line-width": ["interpolate", ["linear"], ["zoom"], 9, 3.6, 13, 7.6],
+      "line-opacity": 0.72,
+    },
+  });
+
+  state.map.addLayer({
     id: "metro-lines-base",
     type: "line",
     source: SOURCE_IDS.lines,
+    layout: {
+      "line-cap": "round",
+      "line-join": "round",
+    },
     paint: {
       "line-color": ["coalesce", ["get", "line_color"], "#637081"],
-      "line-width": ["interpolate", ["linear"], ["zoom"], 9, 2, 13, 5],
-      "line-opacity": 0.62,
+      "line-width": ["interpolate", ["linear"], ["zoom"], 9, 2.6, 13, 5.8],
+      "line-opacity": 0.84,
     },
   });
 
@@ -164,6 +215,10 @@ function handleMapLoad() {
     id: "route-lines-halo",
     type: "line",
     source: SOURCE_IDS.route,
+    layout: {
+      "line-cap": "round",
+      "line-join": "round",
+    },
     paint: {
       "line-color": "rgba(255,255,255,0.96)",
       "line-width": ["interpolate", ["linear"], ["zoom"], 9, 7, 13, 12],
@@ -176,6 +231,10 @@ function handleMapLoad() {
     type: "line",
     source: SOURCE_IDS.route,
     filter: ["==", ["get", "kind"], "ride"],
+    layout: {
+      "line-cap": "round",
+      "line-join": "round",
+    },
     paint: {
       "line-color": "#145ef2",
       "line-width": ["interpolate", ["linear"], ["zoom"], 9, 4.2, 13, 8.4],
@@ -189,11 +248,14 @@ function handleMapLoad() {
     type: "line",
     source: SOURCE_IDS.route,
     filter: ["==", ["get", "kind"], "walk"],
+    layout: {
+      "line-cap": "round",
+      "line-join": "round",
+    },
     paint: {
-      "line-color": "#e6a91a",
-      "line-width": ["interpolate", ["linear"], ["zoom"], 9, 4.0, 13, 7.6],
-      "line-opacity": 0.98,
-      "line-dasharray": [1.9, 1.2],
+      "line-color": "#1f9d67",
+      "line-width": ["interpolate", ["linear"], ["zoom"], 9, 4.2, 13, 7.8],
+      "line-opacity": 0.96,
     },
   });
 
@@ -202,10 +264,10 @@ function handleMapLoad() {
     type: "circle",
     source: SOURCE_IDS.stations,
     paint: {
-      "circle-radius": ["interpolate", ["linear"], ["zoom"], 9, 3.4, 13, 6.8],
+      "circle-radius": ["interpolate", ["linear"], ["zoom"], 9, 3, 13, 6.1],
       "circle-color": "#0f172a",
       "circle-stroke-color": "#ffffff",
-      "circle-stroke-width": 1.8,
+      "circle-stroke-width": 1.6,
       "circle-opacity": 0.9,
     },
   });
@@ -386,7 +448,7 @@ function handleMapLoad() {
     setStatus("Point updated. Click Find Route to calculate.");
   });
 
-  const bounds = state.gis.bounds || [121.45, 24.95, 121.65, 25.15];
+  const bounds = state.gis.basemap?.bounds || state.gis.bounds || [121.45, 24.95, 121.65, 25.15];
   state.map.fitBounds(
     [
       [bounds[0], bounds[1]],
@@ -478,9 +540,15 @@ async function findRouteForPoints() {
 function buildRouteGeoJson(resultPayload) {
   const features = [];
   const route = resultPayload.route || {};
+  const ridePathFeatures = Array.isArray(resultPayload.ride_path_features)
+    ? resultPayload.ride_path_features
+    : [];
 
   (route.steps || []).forEach((step) => {
     if (step.kind === "transfer" || !step.next_station_id) {
+      return;
+    }
+    if (step.kind === "ride" && ridePathFeatures.length) {
       return;
     }
     const from = state.stationCoordsById.get(step.station_id);
@@ -500,33 +568,58 @@ function buildRouteGeoJson(resultPayload) {
     });
   });
 
-  const startStationCoords = state.stationCoordsById.get(resultPayload.selected_start_station?.id);
-  const endStationCoords = state.stationCoordsById.get(resultPayload.selected_end_station?.id);
-  if (state.startPoint && startStationCoords) {
+  ridePathFeatures.forEach((feature) => {
+    const coordinates = feature?.geometry?.coordinates;
+    if (!Array.isArray(coordinates) || coordinates.length < 2) {
+      return;
+    }
+    features.push(feature);
+  });
+
+  if (Array.isArray(resultPayload.access_walk_path?.coordinates) && resultPayload.access_walk_path.coordinates.length >= 2) {
     features.push({
       type: "Feature",
-      geometry: {
-        type: "LineString",
-        coordinates: [
-          [state.startPoint.lon, state.startPoint.lat],
-          startStationCoords,
-        ],
-      },
+      geometry: resultPayload.access_walk_path,
       properties: { kind: "walk" },
     });
+  } else {
+    const startStationCoords = state.stationCoordsById.get(resultPayload.selected_start_station?.id);
+    if (state.startPoint && startStationCoords) {
+      features.push({
+        type: "Feature",
+        geometry: {
+          type: "LineString",
+          coordinates: [
+            [state.startPoint.lon, state.startPoint.lat],
+            startStationCoords,
+          ],
+        },
+        properties: { kind: "walk" },
+      });
+    }
   }
-  if (state.endPoint && endStationCoords) {
+
+  if (Array.isArray(resultPayload.egress_walk_path?.coordinates) && resultPayload.egress_walk_path.coordinates.length >= 2) {
     features.push({
       type: "Feature",
-      geometry: {
-        type: "LineString",
-        coordinates: [
-          endStationCoords,
-          [state.endPoint.lon, state.endPoint.lat],
-        ],
-      },
+      geometry: resultPayload.egress_walk_path,
       properties: { kind: "walk" },
     });
+  } else {
+    const endStationCoords = state.stationCoordsById.get(resultPayload.selected_end_station?.id);
+    if (state.endPoint && endStationCoords) {
+      features.push({
+        type: "Feature",
+        geometry: {
+          type: "LineString",
+          coordinates: [
+            endStationCoords,
+            [state.endPoint.lon, state.endPoint.lat],
+          ],
+        },
+        properties: { kind: "walk" },
+      });
+    }
   }
 
   return {

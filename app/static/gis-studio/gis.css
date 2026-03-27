@@ -1,5 +1,5 @@
 .gis-workspace {
-  grid-template-columns: 340px minmax(0, 1fr);
+  grid-template-columns: 300px minmax(0, 1fr);
   grid-template-areas: "control map";
 }
 
@@ -15,10 +15,20 @@
 
 .gis-map {
   width: 100%;
-  min-height: 72vh;
+  min-height: clamp(620px, 78vh, 940px);
   border-radius: 18px;
   border: 1px solid rgba(15, 23, 42, 0.12);
   overflow: hidden;
+}
+
+@media (min-width: 1480px) {
+  .gis-workspace {
+    grid-template-columns: 280px minmax(0, 1fr);
+  }
+
+  .gis-map {
+    min-height: clamp(700px, 82vh, 1040px);
+  }
 }
 
 .gis-map .maplibregl-popup-content {
@@ -40,6 +50,6 @@
   }
 
   .gis-map {
-    min-height: 62vh;
+    min-height: 68vh;
   }
 }

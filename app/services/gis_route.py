@@ -3,6 +3,9 @@ from __future__ import annotations
 import math
 from typing import Any
 
+from app.services.walk_network import build_walk_graph
+from app.services.walk_network import find_nearest_station_by_walk
+
 
 def extract_station_coordinates(stations_geojson: dict[str, Any]) -> dict[str, tuple[float, float]]:
     lookup: dict[str, tuple[float, float]] = {}
