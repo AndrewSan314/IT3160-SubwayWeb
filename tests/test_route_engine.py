@@ -106,7 +106,7 @@ class RouteEngineTests(unittest.TestCase):
         self.assertEqual(result.transfer_count, 0)
         self.assertEqual(result.station_ids, ["X1"])
 
-    def test_point_route_snaps_start_and_end_to_nearest_station(self):
+    def test_point_route_nearest_mode_snaps_to_nearest_station(self):
         engine = make_engine()
 
         result = engine.find_best_route_for_points(
@@ -115,6 +115,7 @@ class RouteEngineTests(unittest.TestCase):
             end_x=444,
             end_y=28,
             walking_seconds_per_pixel=1.0,
+            route_mode="nearest_station",
         )
 
         self.assertEqual(result["selected_start_station"]["id"], "B1")
@@ -140,6 +141,51 @@ class RouteEngineTests(unittest.TestCase):
         self.assertEqual(result["selected_end_station"]["id"], "R5")
         self.assertEqual(result["route"]["line_sequence"], ["red"])
 
+    def test_point_route_considers_more_than_single_nearest_station(self):
+        engine = make_engine()
+
+        result = engine.find_best_route_for_points(
+            start_x=130,
+            start_y=30,
+            end_x=210,
+            end_y=270,
+            walking_seconds_per_pixel=1.0,
+            max_station_walk_sec=60,
+        )
+
+        self.assertEqual(result["selected_start_station"]["id"], "R1")
+        self.assertEqual(result["selected_end_station"]["id"], "R2")
+        self.assertEqual(result["total_journey_time_sec"], 333)
+
+    def test_point_route_rejects_non_positive_walking_speed(self):
+        engine = make_engine()
+
+        with self.assertRaises(ValueError) as context:
+            engine.find_best_route_for_points(
+                start_x=130,
+                start_y=30,
+                end_x=210,
+                end_y=270,
+                walking_seconds_per_pixel=0,
+            )
+
+        self.assertIn("walking_seconds_per_pixel", str(context.exception))
+
+    def test_point_route_rejects_unknown_route_mode(self):
+        engine = make_engine()
+
+        with self.assertRaises(ValueError) as context:
+            engine.find_best_route_for_points(
+                start_x=130,
+                start_y=30,
+                end_x=210,
+                end_y=270,
+                walking_seconds_per_pixel=1.0,
+                route_mode="invalid_mode",
+            )
+
+        self.assertIn("route_mode", str(context.exception))
+
     def test_route_through_waypoints_enforces_stopover_station(self):
         engine = make_engine()
 
@@ -162,8 +208,8 @@ class RouteEngineTests(unittest.TestCase):
             via_station_ids=["R5"],
         )
 
-        self.assertEqual(result["selected_start_station"]["id"], "B1")
-        self.assertEqual(result["selected_end_station"]["id"], "G5")
+        self.assertEqual(result["selected_start_station"]["id"], "B2")
+        self.assertEqual(result["selected_end_station"]["id"], "G4")
         self.assertIn("R5", result["route"]["station_ids"])
         self.assertEqual([station["id"] for station in result["via_stations"]], ["R5"])
 

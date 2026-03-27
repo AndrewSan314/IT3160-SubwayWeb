@@ -1,6 +1,5 @@
 import json
 import sys
-import tempfile
 import unittest
 from pathlib import Path
 
@@ -24,8 +23,8 @@ class CalibrationStoreTests(unittest.TestCase):
             "transfers": [],
         }
 
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            file_path = Path(tmp_dir) / "network.json"
+        file_path = PROJECT_ROOT / "tests" / "_tmp_calibration_store_network.json"
+        try:
             file_path.write_text(json.dumps(sample), encoding="utf-8")
 
             updated = save_station_positions(
@@ -42,6 +41,8 @@ class CalibrationStoreTests(unittest.TestCase):
             self.assertEqual(persisted["stations"][0]["y"], 222)
             self.assertEqual(persisted["stations"][1]["x"], 30)
             self.assertEqual(persisted["stations"][1]["y"], 40)
+        finally:
+            file_path.unlink(missing_ok=True)
 
 
 if __name__ == "__main__":

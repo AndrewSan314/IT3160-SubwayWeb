@@ -26,6 +26,7 @@ const state = {
   lineColorEntries: [],
   zoomControllers: {},
   viaStationIds: [],
+  routeMode: "best_route",
 };
 
 const REAL_DRAW = {
@@ -55,6 +56,7 @@ const ZOOM = {
 const elements = {
   armStartBtn: document.getElementById("armStartBtn"),
   armEndBtn: document.getElementById("armEndBtn"),
+  routeModeSelect: document.getElementById("routeModeSelect"),
   findRouteBtn: document.getElementById("findRouteBtn"),
   resetBtn: document.getElementById("resetBtn"),
   statusText: document.getElementById("statusText"),
@@ -90,6 +92,7 @@ async function init() {
     buildLookups();
     await configureMapSurfaces();
     bindEvents();
+    elements.routeModeSelect.value = state.routeMode;
     initZoomControllers();
     renderAll();
     setStatus("Pick a start point on the real map.");
@@ -160,6 +163,7 @@ async function configureMapSurfaces() {
 function bindEvents() {
   elements.armStartBtn.addEventListener("click", () => setPickMode("start"));
   elements.armEndBtn.addEventListener("click", () => setPickMode("end"));
+  elements.routeModeSelect.addEventListener("change", handleRouteModeChange);
   elements.findRouteBtn.addEventListener("click", findRouteForPoints);
   elements.resetBtn.addEventListener("click", resetRouteState);
   elements.addViaStationBtn.addEventListener("click", addViaStationFromSelector);
@@ -175,6 +179,12 @@ function bindEvents() {
     });
   });
   window.addEventListener("resize", handleWindowResize);
+}
+
+function handleRouteModeChange() {
+  state.routeMode = elements.routeModeSelect.value === "nearest_station"
+    ? "nearest_station"
+    : "best_route";
 }
 
 function renderViaStationSelector() {
@@ -330,6 +340,8 @@ async function findRouteForPoints() {
       end_y: state.endPoint.y,
       walking_seconds_per_pixel: 1.0,
       via_station_ids: state.viaStationIds,
+      route_mode: state.routeMode,
+      candidate_limit: 12,
     };
     if (state.network.map.supports_line_hints) {
       payload.start_preferred_line_ids = state.pointLineHints.start;
@@ -1134,19 +1146,23 @@ function renderSummary() {
   const viaLabel = viaStations.length
     ? viaStations.map((station) => station.name).join(" -> ")
     : "None";
+  const totalWalkingSec = route.walking_time_sec
+    + state.routeResult.access_walk_time_sec
+    + state.routeResult.egress_walk_time_sec;
+  const modeLabel = (state.routeResult.route_mode || state.routeMode) === "nearest_station"
+    ? "Nearest Station"
+    : "Best Route";
 
   elements.summary.classList.remove("empty");
   elements.summary.innerHTML = [
     renderMetricCard("Total journey", formatDuration(state.routeResult.total_journey_time_sec)),
     renderMetricCard("Subway time", formatDuration(route.total_time_sec)),
-    renderMetricCard(
-      "Walking",
-      `${formatDuration(state.routeResult.access_walk_time_sec + state.routeResult.egress_walk_time_sec)}`,
-    ),
+    renderMetricCard("Walking", `${formatDuration(totalWalkingSec)}`),
     renderMetricCard(
       "Chosen stations",
       `${state.routeResult.selected_start_station.name} -> ${state.routeResult.selected_end_station.name}`,
     ),
+    renderMetricCard("Route mode", modeLabel),
     renderMetricCard("Stopovers", viaLabel),
     renderMetricCard("Line sequence", lineLabels),
   ].join("");

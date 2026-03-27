@@ -6,11 +6,13 @@ const state = {
   startPoint: null,
   endPoint: null,
   viaStationIds: [],
+  routeMode: "best_route",
   routeResult: null,
   stationCoordsById: new Map(),
   stationById: new Map(),
   lineById: new Map(),
   suppressNextMapClick: false,
+  sidebarVisible: true,
 };
 
 const elements = {
@@ -19,8 +21,11 @@ const elements = {
   pickEndBtn: document.getElementById("pickEndBtn"),
   pickViaBtn: document.getElementById("pickViaBtn"),
   clearViaBtn: document.getElementById("clearViaBtn"),
+  routeModeSelect: document.getElementById("routeModeSelect"),
   findRouteBtn: document.getElementById("findRouteBtn"),
   resetBtn: document.getElementById("resetBtn"),
+  toggleSidebarBtn: document.getElementById("toggleSidebarBtn"),
+  openSidebarBtn: document.getElementById("openSidebarBtn"),
   statusText: document.getElementById("statusText"),
   selectionCard: document.getElementById("selectionCard"),
   summaryCard: document.getElementById("summaryCard"),
@@ -57,6 +62,8 @@ async function init() {
     state.stationById = new Map((state.network.stations || []).map((station) => [station.id, station]));
     buildStationCoordinateLookup();
     bindEvents();
+    elements.routeModeSelect.value = state.routeMode;
+    applySidebarState();
     initializeMap();
     renderAll();
 
@@ -92,8 +99,22 @@ function bindEvents() {
   elements.pickEndBtn.addEventListener("click", () => setPickMode("end"));
   elements.pickViaBtn.addEventListener("click", () => setPickMode("via"));
   elements.clearViaBtn.addEventListener("click", clearViaStations);
+  elements.routeModeSelect.addEventListener("change", handleRouteModeChange);
   elements.findRouteBtn.addEventListener("click", findRouteForPoints);
   elements.resetBtn.addEventListener("click", resetAll);
+  elements.toggleSidebarBtn.addEventListener("click", toggleSidebar);
+  elements.openSidebarBtn.addEventListener("click", showSidebar);
+  window.addEventListener("resize", () => {
+    if (state.map) {
+      state.map.resize();
+    }
+  });
+}
+
+function handleRouteModeChange() {
+  state.routeMode = elements.routeModeSelect.value === "nearest_station"
+    ? "nearest_station"
+    : "best_route";
 }
 
 function initializeMap() {
@@ -165,9 +186,9 @@ function handleMapLoad() {
     type: "line",
     source: SOURCE_IDS.route,
     paint: {
-      "line-color": "rgba(255,255,255,0.96)",
-      "line-width": ["interpolate", ["linear"], ["zoom"], 9, 7, 13, 12],
-      "line-opacity": 0.78,
+      "line-color": "rgba(255,255,255,0.62)",
+      "line-width": ["interpolate", ["linear"], ["zoom"], 9, 6.2, 13, 10.2],
+      "line-opacity": 0.66,
     },
   });
 
@@ -303,22 +324,34 @@ function handleMapLoad() {
     id: "metro-stations-label",
     type: "symbol",
     source: SOURCE_IDS.stations,
-    minzoom: 11.8,
+    minzoom: 10.8,
     layout: {
       "text-field": ["get", "name"],
       "text-font": ["Noto Sans Regular"],
-      "text-size": ["interpolate", ["linear"], ["zoom"], 11.8, 10, 14, 13.5],
+      "text-size": ["interpolate", ["linear"], ["zoom"], 10.8, 10, 14, 13.8],
       "text-offset": [0.75, -0.65],
       "text-anchor": "left",
       "text-allow-overlap": true,
-      "text-ignore-placement": false,
+      "text-ignore-placement": true,
     },
     paint: {
       "text-color": "#0f172a",
       "text-halo-color": "#ffffff",
       "text-halo-width": 1.5,
-      "text-opacity": ["interpolate", ["linear"], ["zoom"], 11.8, 0, 12.6, 0.96],
+      "text-opacity": ["interpolate", ["linear"], ["zoom"], 10.8, 0, 11.4, 0.96],
     },
+  });
+
+  [
+    "metro-stations-label",
+    "selected-stations-circle",
+    "selected-stations-label",
+    "picked-points-circle",
+    "picked-points-label",
+  ].forEach((layerId) => {
+    if (state.map.getLayer(layerId)) {
+      state.map.moveLayer(layerId);
+    }
   });
 
   state.map.on("mouseenter", "metro-stations-circle", () => {
@@ -402,6 +435,8 @@ function handleMapLoad() {
   updatePickedPointsSource();
   updateSelectedStationsSource();
   updateRouteSource(emptyFeatureCollection());
+  requestAnimationFrame(() => state.map.resize());
+  window.setTimeout(() => state.map.resize(), 120);
 }
 
 function setPickMode(mode) {
@@ -416,6 +451,38 @@ function setPickMode(mode) {
         ? "Click anywhere on map to set END point."
         : "Via mode: click station circles to add/remove stopovers.",
   );
+}
+
+function toggleSidebar() {
+  state.sidebarVisible = !state.sidebarVisible;
+  applySidebarState();
+}
+
+function showSidebar() {
+  if (state.sidebarVisible) {
+    return;
+  }
+  state.sidebarVisible = true;
+  applySidebarState();
+}
+
+function applySidebarState() {
+  const shell = document.querySelector(".gis-shell");
+  if (!shell) {
+    return;
+  }
+
+  shell.classList.toggle("is-sidebar-hidden", !state.sidebarVisible);
+  elements.toggleSidebarBtn.textContent = state.sidebarVisible ? "Hide Sidebar" : "Show Sidebar";
+  elements.toggleSidebarBtn.setAttribute("aria-expanded", state.sidebarVisible ? "true" : "false");
+  elements.openSidebarBtn.textContent = "Show Sidebar";
+  elements.openSidebarBtn.setAttribute("aria-expanded", state.sidebarVisible ? "true" : "false");
+
+  // Resize map after grid transition to avoid stretched canvas.
+  if (state.map) {
+    requestAnimationFrame(() => state.map.resize());
+    window.setTimeout(() => state.map.resize(), 240);
+  }
 }
 
 function toggleViaStation(stationId) {
@@ -457,6 +524,8 @@ async function findRouteForPoints() {
         end_lat: state.endPoint.lat,
         via_station_ids: state.viaStationIds,
         walking_m_per_sec: 1.3,
+        route_mode: state.routeMode,
+        candidate_limit: 12,
       }),
     });
     const payload = await response.json();
@@ -678,19 +747,23 @@ function renderSummary() {
 
   const route = state.routeResult.route || {};
   const lineLabels = (route.line_labels || []).join(" -> ") || "No ride";
+  const totalWalkingSec = (route.walking_time_sec || 0)
+    + (state.routeResult.access_walk_time_sec || 0)
+    + (state.routeResult.egress_walk_time_sec || 0);
+  const modeLabel = (state.routeResult.route_mode || state.routeMode) === "nearest_station"
+    ? "Nearest Station"
+    : "Best Route";
 
   elements.summaryCard.classList.remove("empty");
   elements.summaryCard.innerHTML = [
     renderMetricCard("Total Journey", formatDuration(state.routeResult.total_journey_time_sec || 0)),
     renderMetricCard("Subway Time", formatDuration(route.total_time_sec || 0)),
-    renderMetricCard(
-      "Walking",
-      formatDuration((state.routeResult.access_walk_time_sec || 0) + (state.routeResult.egress_walk_time_sec || 0)),
-    ),
+    renderMetricCard("Walking", formatDuration(totalWalkingSec)),
     renderMetricCard(
       "Walk Dist.",
       `${Math.round((state.routeResult.access_walk_distance_m || 0) + (state.routeResult.egress_walk_distance_m || 0))} m`,
     ),
+    renderMetricCard("Route Mode", modeLabel),
     renderMetricCard("Line Sequence", lineLabels),
   ].join("");
 }

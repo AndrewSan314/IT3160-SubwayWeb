@@ -78,7 +78,12 @@ class RouteEngine:
                         )
                     )
 
-    def find_route(self, start_station_id: str, end_station_id: str) -> RouteResult:
+    def find_route(
+        self,
+        start_station_id: str,
+        end_station_id: str,
+        allow_walk_transfers: bool = True,
+    ) -> RouteResult:
         if start_station_id not in self.network.stations:
             raise ValueError(f"Unknown start station: {start_station_id}")
         if end_station_id not in self.network.stations:
@@ -123,6 +128,8 @@ class RouteEngine:
                 break
 
             for edge in self.graph.get(state, []):
+                if not allow_walk_transfers and edge.kind == "walk":
+                    continue
                 next_cost = self._add_cost(current_cost, edge.cost)
                 known_cost = distances.get(edge.target)
                 if known_cost is None or next_cost < known_cost:
@@ -135,7 +142,11 @@ class RouteEngine:
 
         return self._build_result(best_goal, distances[best_goal], parents)
 
-    def find_route_through_stations(self, station_ids: list[str]) -> RouteResult:
+    def find_route_through_stations(
+        self,
+        station_ids: list[str],
+        allow_walk_transfers: bool = True,
+    ) -> RouteResult:
         if len(station_ids) < 2:
             raise ValueError("At least two station ids are required")
 
@@ -165,7 +176,13 @@ class RouteEngine:
             normalized_station_ids[1:],
             strict=False,
         ):
-            legs.append(self.find_route(start_station_id, end_station_id))
+            legs.append(
+                self.find_route(
+                    start_station_id,
+                    end_station_id,
+                    allow_walk_transfers=allow_walk_transfers,
+                )
+            )
 
         return self._merge_leg_results(legs)
 
@@ -181,7 +198,15 @@ class RouteEngine:
         start_preferred_line_ids: list[str] | None = None,
         end_preferred_line_ids: list[str] | None = None,
         via_station_ids: list[str] | None = None,
+        route_mode: str = "best_route",
     ) -> dict:
+        if walking_seconds_per_pixel <= 0:
+            raise ValueError("walking_seconds_per_pixel must be > 0")
+        if route_mode not in {"best_route", "nearest_station"}:
+            raise ValueError("route_mode must be 'best_route' or 'nearest_station'")
+
+        prefer_nearest = route_mode == "nearest_station"
+
         ordered_via_station_ids = list(via_station_ids or [])
         for via_station_id in ordered_via_station_ids:
             if via_station_id not in self.network.stations:
@@ -193,7 +218,7 @@ class RouteEngine:
             walking_seconds_per_pixel,
             candidate_limit,
             max_station_walk_sec,
-            prefer_nearest=True,
+            prefer_nearest=prefer_nearest,
             preferred_line_ids=set(start_preferred_line_ids or []),
         )
         end_candidates = self._candidate_stations(
@@ -202,7 +227,7 @@ class RouteEngine:
             walking_seconds_per_pixel,
             candidate_limit,
             max_station_walk_sec,
-            prefer_nearest=True,
+            prefer_nearest=prefer_nearest,
             preferred_line_ids=set(end_preferred_line_ids or []),
         )
 

@@ -1,0 +1,2925 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.462638,
+          25.1198242
+        ]
+      },
+      "properties": {
+        "id": "airport-hotel",
+        "name": "Airport Hotel",
+        "line_ids": [
+          "c11"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.4611714,
+          25.1090078
+        ]
+      },
+      "properties": {
+        "id": "airport-terminal-1",
+        "name": "Airport Terminal 1",
+        "line_ids": [
+          "c11"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.4619047,
+          25.1144163
+        ]
+      },
+      "properties": {
+        "id": "airport-terminal-2",
+        "name": "Airport Terminal 2",
+        "line_ids": [
+          "c11"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5261783,
+          24.9792068
+        ]
+      },
+      "properties": {
+        "id": "ankang",
+        "name": "Ankang",
+        "line_ids": [
+          "c10"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.4802456,
+          25.025228
+        ]
+      },
+      "properties": {
+        "id": "banqiao",
+        "name": "Banqiao",
+        "line_ids": [
+          "c3"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.4859566,
+          25.01925
+        ]
+      },
+      "properties": {
+        "id": "banxin",
+        "name": "Banxin",
+        "line_ids": [
+          "c9"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5103289,
+          25.0493991
+        ]
+      },
+      "properties": {
+        "id": "beimen",
+        "name": "Beimen",
+        "line_ids": [
+          "c4"
+        ],
+        "source": "osm_station_match"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.4985934,
+          25.1319307
+        ]
+      },
+      "properties": {
+        "id": "beitou",
+        "name": "Beitou",
+        "line_ids": [
+          "c2",
+          "c6"
+        ],
+        "source": "osm_station_match"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5355583,
+          25.1525953
+        ]
+      },
+      "properties": {
+        "id": "binhai-shalun",
+        "name": "Binhai Shalun",
+        "line_ids": [
+          "c7"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5355324,
+          25.1443884
+        ]
+      },
+      "properties": {
+        "id": "binhai-yishan",
+        "name": "Binhai Yishan",
+        "line_ids": [
+          "c7"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.4832304,
+          25.0632738
+        ]
+      },
+      "properties": {
+        "id": "cailiao",
+        "name": "Cailiao",
+        "line_ids": [
+          "c5"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5139712,
+          24.9693411
+        ]
+      },
+      "properties": {
+        "id": "cardinal-tien-hospital-an-kang-branch",
+        "name": "Cardinal Tien Hospital An Kang Branch",
+        "line_ids": [
+          "c10"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.4582383,
+          25.0873762
+        ]
+      },
+      "properties": {
+        "id": "chang-gung-memorial-hospital",
+        "name": "Chang Gung Memorial Hospital",
+        "line_ids": [
+          "c11"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5177618,
+          25.0333942
+        ]
+      },
+      "properties": {
+        "id": "chiang-kai-shek-memorial-hall",
+        "name": "Chiang Kai-shek Memorial Hall",
+        "line_ids": [
+          "c2",
+          "c4"
+        ],
+        "source": "osm_station_match"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5136375,
+          25.0149773
+        ]
+      },
+      "properties": {
+        "id": "dingxi",
+        "name": "DIngxi",
+        "line_ids": [
+          "c5"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5435546,
+          25.0333294
+        ]
+      },
+      "properties": {
+        "id": "daan",
+        "name": "Daan",
+        "line_ids": [
+          "c1",
+          "c2"
+        ],
+        "source": "osm_station_match"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5352793,
+          25.0335619
+        ]
+      },
+      "properties": {
+        "id": "daan-park",
+        "name": "Daan Park",
+        "line_ids": [
+          "c2"
+        ],
+        "source": "osm_station_match"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.602341,
+          25.0837613
+        ]
+      },
+      "properties": {
+        "id": "dahu-park",
+        "name": "Dahu Park",
+        "line_ids": [
+          "c1"
+        ],
+        "source": "osm_station_match"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.4477797,
+          25.0262758
+        ]
+      },
+      "properties": {
+        "id": "danfeng",
+        "name": "Danfeng",
+        "line_ids": [
+          "c5"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5451025,
+          25.1508387
+        ]
+      },
+      "properties": {
+        "id": "danhai-new-town",
+        "name": "Danhai New Town",
+        "line_ids": [
+          "c7"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5152218,
+          25.1388883
+        ]
+      },
+      "properties": {
+        "id": "danjin-beixin",
+        "name": "Danjin Beixin",
+        "line_ids": [
+          "c7"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.498037,
+          25.1404084
+        ]
+      },
+      "properties": {
+        "id": "danjin-denggong",
+        "name": "Danjin Denggong",
+        "line_ids": [
+          "c7"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.547711,
+          24.9937202
+        ]
+      },
+      "properties": {
+        "id": "dapinglin",
+        "name": "Dapinglin",
+        "line_ids": [
+          "c4",
+          "c9"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5126944,
+          25.063198
+        ]
+      },
+      "properties": {
+        "id": "daqiaotou",
+        "name": "Daqiaotou",
+        "line_ids": [
+          "c5"
+        ],
+        "source": "osm_station_match"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.4633712,
+          25.1252321
+        ]
+      },
+      "properties": {
+        "id": "dayuan",
+        "name": "Dayuan",
+        "line_ids": [
+          "c11"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5474402,
+          25.0798652
+        ]
+      },
+      "properties": {
+        "id": "dazhi",
+        "name": "Dazhi",
+        "line_ids": [
+          "c1"
+        ],
+        "source": "osm_station_match"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.4743794,
+          24.9819648
+        ]
+      },
+      "properties": {
+        "id": "dingpu",
+        "name": "Dingpu",
+        "line_ids": [
+          "c3"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.6116099,
+          25.0674198
+        ]
+      },
+      "properties": {
+        "id": "donghu",
+        "name": "Donghu",
+        "line_ids": [
+          "c1"
+        ],
+        "source": "osm_station_match"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5292584,
+          25.0338425
+        ]
+      },
+      "properties": {
+        "id": "dongmen",
+        "name": "Dongmen",
+        "line_ids": [
+          "c2",
+          "c5"
+        ],
+        "source": "osm_station_match"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.4782903,
+          25.0108073
+        ]
+      },
+      "properties": {
+        "id": "far-eastern-hospital",
+        "name": "Far Eastern Hospital",
+        "line_ids": [
+          "c3"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.4487574,
+          25.0334867
+        ]
+      },
+      "properties": {
+        "id": "fu-jen-university",
+        "name": "Fu Jen University",
+        "line_ids": [
+          "c5"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.4910521,
+          25.1209588
+        ]
+      },
+      "properties": {
+        "id": "fuxingguang",
+        "name": "Fuxingguang",
+        "line_ids": [
+          "c2"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.4792679,
+          25.0180176
+        ]
+      },
+      "properties": {
+        "id": "fuzhong",
+        "name": "Fuzhong",
+        "line_ids": [
+          "c3"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5752034,
+          25.0800727
+        ]
+      },
+      "properties": {
+        "id": "gangqian",
+        "name": "Gangqian",
+        "line_ids": [
+          "c1"
+        ],
+        "source": "osm_station_match"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.4894446,
+          25.1411685
+        ]
+      },
+      "properties": {
+        "id": "ganzhenlin",
+        "name": "Ganzhenlin",
+        "line_ids": [
+          "c7"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.534264,
+          25.0149166
+        ]
+      },
+      "properties": {
+        "id": "gongguan",
+        "name": "Gongguan",
+        "line_ids": [
+          "c4"
+        ],
+        "source": "osm_station_match"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.4671419,
+          25.1257006
+        ]
+      },
+      "properties": {
+        "id": "guandu",
+        "name": "Guandu",
+        "line_ids": [
+          "c2"
+        ],
+        "source": "osm_station_match"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5229533,
+          25.0264102
+        ]
+      },
+      "properties": {
+        "id": "guting",
+        "name": "Guting",
+        "line_ids": [
+          "c5"
+        ],
+        "source": "osm_station_match"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.4773125,
+          25.0035964
+        ]
+      },
+      "properties": {
+        "id": "haishan",
+        "name": "Haishan",
+        "line_ids": [
+          "c3"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.4641045,
+          25.13064
+        ]
+      },
+      "properties": {
+        "id": "hengshan",
+        "name": "Hengshan",
+        "line_ids": [
+          "c11"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.4808522,
+          25.1419286
+        ]
+      },
+      "properties": {
+        "id": "hongshulin",
+        "name": "Hongshulin",
+        "line_ids": [
+          "c2",
+          "c7"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5823224,
+          25.0447413
+        ]
+      },
+      "properties": {
+        "id": "houshanpi",
+        "name": "Houshanpi",
+        "line_ids": [
+          "c3"
+        ],
+        "source": "osm_station_match"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.4677709,
+          25.1576794
+        ]
+      },
+      "properties": {
+        "id": "huanbei",
+        "name": "Huanbei",
+        "line_ids": [
+          "c11"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.446802,
+          25.0190655
+        ]
+      },
+      "properties": {
+        "id": "huilong",
+        "name": "Huilong",
+        "line_ids": [
+          "c5"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.6073633,
+          25.0726385
+        ]
+      },
+      "properties": {
+        "id": "huzhou",
+        "name": "Huzhou",
+        "line_ids": [
+          "c1"
+        ],
+        "source": "osm_station_match"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.4776604,
+          25.0382268
+        ]
+      },
+      "properties": {
+        "id": "jiangzicui",
+        "name": "Jiangzicui",
+        "line_ids": [
+          "c3"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.553488,
+          25.0844232
+        ]
+      },
+      "properties": {
+        "id": "jiannan-rd",
+        "name": "Jiannan Rd.",
+        "line_ids": [
+          "c1"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5249806,
+          25.0842913
+        ]
+      },
+      "properties": {
+        "id": "jiantan",
+        "name": "Jiantan",
+        "line_ids": [
+          "c2"
+        ],
+        "source": "osm_station_match"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5116821,
+          25.0005561
+        ]
+      },
+      "properties": {
+        "id": "jingan",
+        "name": "Jingan",
+        "line_ids": [
+          "c5",
+          "c9"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5408198,
+          24.992978
+        ]
+      },
+      "properties": {
+        "id": "jingmei",
+        "name": "Jingmei",
+        "line_ids": [
+          "c4"
+        ],
+        "source": "osm_station_match"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5202745,
+          24.999796
+        ]
+      },
+      "properties": {
+        "id": "jingping",
+        "name": "Jingping",
+        "line_ids": [
+          "c9"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5211488,
+          24.9741789
+        ]
+      },
+      "properties": {
+        "id": "jinwen-university-of-science-and-technology",
+        "name": "Jinwen University of Science and Technology",
+        "line_ids": [
+          "c10"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5536949,
+          25.1500786
+        ]
+      },
+      "properties": {
+        "id": "kanding",
+        "name": "Kanding",
+        "line_ids": [
+          "c7"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.4604381,
+          25.1035999
+        ]
+      },
+      "properties": {
+        "id": "kengkou",
+        "name": "Kengkou",
+        "line_ids": [
+          "c11"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5933161,
+          25.0504897
+        ]
+      },
+      "properties": {
+        "id": "kunyang",
+        "name": "Kunyang",
+        "line_ids": [
+          "c3"
+        ],
+        "source": "osm_station_match"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.4685042,
+          25.1630879
+        ]
+      },
+      "properties": {
+        "id": "laojie-river",
+        "name": "Laojie River",
+        "line_ids": [
+          "c11"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.4648378,
+          25.1360479
+        ]
+      },
+      "properties": {
+        "id": "linghang",
+        "name": "Linghang",
+        "line_ids": [
+          "c11"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5589054,
+          25.0184395
+        ]
+      },
+      "properties": {
+        "id": "linguang",
+        "name": "Linguang",
+        "line_ids": [
+          "c1"
+        ],
+        "source": "osm_station_match"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.4589716,
+          25.0927841
+        ]
+      },
+      "properties": {
+        "id": "linkou",
+        "name": "Linkou",
+        "line_ids": [
+          "c11"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5531211,
+          25.0238183
+        ]
+      },
+      "properties": {
+        "id": "liuzhangli",
+        "name": "Liuzhangli",
+        "line_ids": [
+          "c1"
+        ],
+        "source": "osm_station_match"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.4995813,
+          25.0352844
+        ]
+      },
+      "properties": {
+        "id": "longshan-temple",
+        "name": "Longshan Temple",
+        "line_ids": [
+          "c3"
+        ],
+        "source": "osm_station_match"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.4848005,
+          25.1069176
+        ]
+      },
+      "properties": {
+        "id": "luzhou",
+        "name": "Luzhou",
+        "line_ids": [
+          "c5"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5796364,
+          24.9726538
+        ]
+      },
+      "properties": {
+        "id": "maokong-zoo-station",
+        "name": "Maokong Zoo Station",
+        "line_ids": [
+          "c0"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5187693,
+          25.1098593
+        ]
+      },
+      "properties": {
+        "id": "mingde",
+        "name": "Mingde",
+        "line_ids": [
+          "c2"
+        ],
+        "source": "osm_station_match"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5169186,
+          25.0712399
+        ]
+      },
+      "properties": {
+        "id": "minquan-w-road",
+        "name": "Minquan W. Road",
+        "line_ids": [
+          "c2",
+          "c5"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5731834,
+          24.9982458
+        ]
+      },
+      "properties": {
+        "id": "muzha",
+        "name": "Muzha",
+        "line_ids": [
+          "c1"
+        ],
+        "source": "osm_station_match"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5161808,
+          25.0416464
+        ]
+      },
+      "properties": {
+        "id": "ntu-hospital",
+        "name": "NTU Hospital",
+        "line_ids": [
+          "c2"
+        ],
+        "source": "osm_station_match"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.607192,
+          25.0520905
+        ]
+      },
+      "properties": {
+        "id": "nangang",
+        "name": "Nangang",
+        "line_ids": [
+          "c3"
+        ],
+        "source": "osm_station_match"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.6158969,
+          25.0599458
+        ]
+      },
+      "properties": {
+        "id": "nangang-software-park",
+        "name": "Nangang Software Park",
+        "line_ids": [
+          "c1"
+        ],
+        "source": "osm_station_match"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5439651,
+          25.051836
+        ]
+      },
+      "properties": {
+        "id": "nanjing-fuxing",
+        "name": "Nanjing Fuxing",
+        "line_ids": [
+          "c1",
+          "c4"
+        ],
+        "source": "osm_station_match"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5643061,
+          25.0514279
+        ]
+      },
+      "properties": {
+        "id": "nanjing-sanmin",
+        "name": "Nanjing Sanmin",
+        "line_ids": [
+          "c4"
+        ],
+        "source": "osm_station_match"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5107044,
+          24.9933451
+        ]
+      },
+      "properties": {
+        "id": "nanshijiao",
+        "name": "Nanshijiao",
+        "line_ids": [
+          "c5"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.457505,
+          25.0819683
+        ]
+      },
+      "properties": {
+        "id": "national-taiwan-sport-university",
+        "name": "National Taiwan Sport University",
+        "line_ids": [
+          "c11"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5941892,
+          25.0834972
+        ]
+      },
+      "properties": {
+        "id": "neihu",
+        "name": "Neihu",
+        "line_ids": [
+          "c1"
+        ],
+        "source": "osm_station_match"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.4545719,
+          25.0603362
+        ]
+      },
+      "properties": {
+        "id": "new-taipei-industrial-park",
+        "name": "New Taipei Industrial Park",
+        "line_ids": [
+          "c11",
+          "c9"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.4973787,
+          25.0072941
+        ]
+      },
+      "properties": {
+        "id": "qiaohe",
+        "name": "Qiaohe",
+        "line_ids": [
+          "c9"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5061304,
+          25.1209048
+        ]
+      },
+      "properties": {
+        "id": "qilian",
+        "name": "Qilian",
+        "line_ids": [
+          "c2"
+        ],
+        "source": "osm_station_match"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5011369,
+          25.1256031
+        ]
+      },
+      "properties": {
+        "id": "qiyan",
+        "name": "Qiyan",
+        "line_ids": [
+          "c2"
+        ],
+        "source": "osm_station_match"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5467333,
+          24.9865099
+        ]
+      },
+      "properties": {
+        "id": "qizhang",
+        "name": "Qizhang",
+        "line_ids": [
+          "c4",
+          "c8"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.4967864,
+          24.9708612
+        ]
+      },
+      "properties": {
+        "id": "rose-china-town",
+        "name": "Rose China Town",
+        "line_ids": [
+          "c10"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.4760529,
+          25.058436
+        ]
+      },
+      "properties": {
+        "id": "sanchong",
+        "name": "Sanchong",
+        "line_ids": [
+          "c11",
+          "c5"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.4918746,
+          25.078928
+        ]
+      },
+      "properties": {
+        "id": "sanchong-elementary-school",
+        "name": "Sanchong Elementary School",
+        "line_ids": [
+          "c5"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.4861636,
+          25.084906
+        ]
+      },
+      "properties": {
+        "id": "sanhe-junior-high-school",
+        "name": "Sanhe Junior High School",
+        "line_ids": [
+          "c5"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.4838228,
+          25.0997072
+        ]
+      },
+      "properties": {
+        "id": "sanmin-senior-high-school",
+        "name": "Sanmin Senior High School",
+        "line_ids": [
+          "c5"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5107329,
+          25.153879
+        ]
+      },
+      "properties": {
+        "id": "shalun",
+        "name": "Shalun",
+        "line_ids": [
+          "c7"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.4597048,
+          25.098192
+        ]
+      },
+      "properties": {
+        "id": "shanbi",
+        "name": "Shanbi",
+        "line_ids": [
+          "c11"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5262468,
+          25.0934949
+        ]
+      },
+      "properties": {
+        "id": "shilin",
+        "name": "Shilin",
+        "line_ids": [
+          "c2"
+        ],
+        "source": "osm_station_match"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5155232,
+          25.1146071
+        ]
+      },
+      "properties": {
+        "id": "shipai",
+        "name": "Shipai",
+        "line_ids": [
+          "c2"
+        ],
+        "source": "osm_station_match"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5391186,
+          24.9944803
+        ]
+      },
+      "properties": {
+        "id": "shisizhang",
+        "name": "Shisizhang",
+        "line_ids": [
+          "c10",
+          "c9"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.488194,
+          24.9716213
+        ]
+      },
+      "properties": {
+        "id": "shuangcheng",
+        "name": "Shuangcheng",
+        "line_ids": [
+          "c10"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5206986,
+          25.057632
+        ]
+      },
+      "properties": {
+        "id": "shuanglian",
+        "name": "Shuanglian",
+        "line_ids": [
+          "c2"
+        ],
+        "source": "osm_station_match"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5330358,
+          25.0520141
+        ]
+      },
+      "properties": {
+        "id": "songjiang-nanjing",
+        "name": "Songjiang Nanjing",
+        "line_ids": [
+          "c4",
+          "c5"
+        ],
+        "source": "osm_station_match"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5781643,
+          25.0491542
+        ]
+      },
+      "properties": {
+        "id": "songshan",
+        "name": "Songshan",
+        "line_ids": [
+          "c4"
+        ],
+        "source": "osm_station_match"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5516137,
+          25.063086
+        ]
+      },
+      "properties": {
+        "id": "songshan-airport",
+        "name": "Songshan Airport",
+        "line_ids": [
+          "c1"
+        ],
+        "source": "osm_station_match"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.4828451,
+          25.0924963
+        ]
+      },
+      "properties": {
+        "id": "st-ignatius-high-school",
+        "name": "St. Ignatius High School",
+        "line_ids": [
+          "c5"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5573918,
+          25.0413418
+        ]
+      },
+      "properties": {
+        "id": "sun-yat-sen-memorial-hall",
+        "name": "Sun Yat-Sen Memorial Hall",
+        "line_ids": [
+          "c3"
+        ],
+        "source": "osm_station_match"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5271559,
+          24.9864171
+        ]
+      },
+      "properties": {
+        "id": "sunshine-sports-park",
+        "name": "Sunshine Sports Park",
+        "line_ids": [
+          "c10"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5624453,
+          25.0329794
+        ]
+      },
+      "properties": {
+        "id": "taipei-101-world-trade-center",
+        "name": "Taipei 101 World Trade Center",
+        "line_ids": [
+          "c2"
+        ],
+        "source": "osm_station_match"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5514989,
+          25.0516857
+        ]
+      },
+      "properties": {
+        "id": "taipei-arena",
+        "name": "Taipei Arena",
+        "line_ids": [
+          "c4"
+        ],
+        "source": "osm_station_match"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.4904081,
+          25.0681122
+        ]
+      },
+      "properties": {
+        "id": "taipei-bridge",
+        "name": "Taipei Bridge",
+        "line_ids": [
+          "c5"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5660998,
+          25.0411283
+        ]
+      },
+      "properties": {
+        "id": "taipei-city-hall",
+        "name": "Taipei City Hall",
+        "line_ids": [
+          "c3"
+        ],
+        "source": "osm_station_match"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5174745,
+          25.0462432
+        ]
+      },
+      "properties": {
+        "id": "taipei-main-station",
+        "name": "Taipei Main Station",
+        "line_ids": [
+          "c2",
+          "c3"
+        ],
+        "source": "osm_station_match"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.6172189,
+          25.0545687
+        ]
+      },
+      "properties": {
+        "id": "taipei-nangang-exhibition-center",
+        "name": "Taipei Nangang Exhibition Center",
+        "line_ids": [
+          "c1",
+          "c3"
+        ],
+        "source": "osm_station_match"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5193253,
+          25.1531189
+        ]
+      },
+      "properties": {
+        "id": "taipei-university-of-marine-technology",
+        "name": "Taipei University of Marine Technology",
+        "line_ids": [
+          "c7"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5053788,
+          24.9701012
+        ]
+      },
+      "properties": {
+        "id": "taipei-xiaocheng",
+        "name": "Taipei Xiaocheng",
+        "line_ids": [
+          "c10"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5794478,
+          24.9983168
+        ]
+      },
+      "properties": {
+        "id": "taipei-zoo",
+        "name": "Taipei Zoo",
+        "line_ids": [
+          "c1"
+        ],
+        "source": "osm_station_match"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5811029,
+          24.9834696
+        ]
+      },
+      "properties": {
+        "id": "taipei-zoo-south-station",
+        "name": "Taipei Zoo South Station",
+        "line_ids": [
+          "c0"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5794478,
+          24.9983168
+        ]
+      },
+      "properties": {
+        "id": "taipei-zoo-station",
+        "name": "Taipei Zoo Station",
+        "line_ids": [
+          "c0"
+        ],
+        "source": "osm_station_match"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5283902,
+          25.0205325
+        ]
+      },
+      "properties": {
+        "id": "taipower-building",
+        "name": "Taipower Building",
+        "line_ids": [
+          "c4"
+        ],
+        "source": "osm_station_match"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.4560385,
+          25.0711526
+        ]
+      },
+      "properties": {
+        "id": "taishan",
+        "name": "Taishan",
+        "line_ids": [
+          "c11"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.4567717,
+          25.0765604
+        ]
+      },
+      "properties": {
+        "id": "taishan-guihe",
+        "name": "Taishan Guihe",
+        "line_ids": [
+          "c11"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5066294,
+          25.1396484
+        ]
+      },
+      "properties": {
+        "id": "tamkang-university",
+        "name": "Tamkang University",
+        "line_ids": [
+          "c7"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.4818299,
+          25.1491389
+        ]
+      },
+      "properties": {
+        "id": "tamsui",
+        "name": "Tamsui",
+        "line_ids": [
+          "c2"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5324066,
+          25.1373681
+        ]
+      },
+      "properties": {
+        "id": "tamsui-district-office",
+        "name": "Tamsui District Office",
+        "line_ids": [
+          "c7"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5021405,
+          25.1546391
+        ]
+      },
+      "properties": {
+        "id": "tamsui-fishermans-wharf",
+        "name": "Tamsui Fishermans Wharf",
+        "line_ids": [
+          "c7"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.465571,
+          25.1414557
+        ]
+      },
+      "properties": {
+        "id": "taoyuan-hsr-station",
+        "name": "Taoyuan HSR Station",
+        "line_ids": [
+          "c11"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.4663043,
+          25.1468636
+        ]
+      },
+      "properties": {
+        "id": "taoyuan-sports-park",
+        "name": "Taoyuan Sports Park",
+        "line_ids": [
+          "c11"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5434596,
+          25.0261012
+        ]
+      },
+      "properties": {
+        "id": "technology-building",
+        "name": "Technology Building",
+        "line_ids": [
+          "c1"
+        ],
+        "source": "osm_station_match"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.4593052,
+          25.0471479
+        ]
+      },
+      "properties": {
+        "id": "touqianzhuang",
+        "name": "Touqianzhuang",
+        "line_ids": [
+          "c5"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.4763348,
+          24.9963855
+        ]
+      },
+      "properties": {
+        "id": "tucheng",
+        "name": "Tucheng",
+        "line_ids": [
+          "c3"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5681226,
+          24.9986089
+        ]
+      },
+      "properties": {
+        "id": "wanfang-community",
+        "name": "Wanfang Community",
+        "line_ids": [
+          "c1"
+        ],
+        "source": "osm_station_match"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.558138,
+          24.9994306
+        ]
+      },
+      "properties": {
+        "id": "wanfang-hospital",
+        "name": "Wanfang Hospital",
+        "line_ids": [
+          "c1"
+        ],
+        "source": "osm_station_match"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5389958,
+          25.001899
+        ]
+      },
+      "properties": {
+        "id": "wanlong",
+        "name": "Wanlong",
+        "line_ids": [
+          "c4"
+        ],
+        "source": "osm_station_match"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5849416,
+          25.0785562
+        ]
+      },
+      "properties": {
+        "id": "wende",
+        "name": "Wende",
+        "line_ids": [
+          "c1"
+        ],
+        "source": "osm_station_match"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5697576,
+          25.0328676
+        ]
+      },
+      "properties": {
+        "id": "xiangshan",
+        "name": "Xiangshan",
+        "line_ids": [
+          "c2"
+        ],
+        "source": "osm_station_match"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.4688753,
+          25.0535982
+        ]
+      },
+      "properties": {
+        "id": "xianse-temple",
+        "name": "Xianse Temple",
+        "line_ids": [
+          "c5"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5381409,
+          24.98727
+        ]
+      },
+      "properties": {
+        "id": "xiaobitan",
+        "name": "Xiaobitan",
+        "line_ids": [
+          "c8"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5108064,
+          25.035901
+        ]
+      },
+      "properties": {
+        "id": "xiaonanmen",
+        "name": "Xiaonanmen",
+        "line_ids": [
+          "c4"
+        ],
+        "source": "osm_station_match"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5673156,
+          25.0821916
+        ]
+      },
+      "properties": {
+        "id": "xihu",
+        "name": "Xihu",
+        "line_ids": [
+          "c1"
+        ],
+        "source": "osm_station_match"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5086081,
+          25.0427128
+        ]
+      },
+      "properties": {
+        "id": "ximen",
+        "name": "Ximen",
+        "line_ids": [
+          "c3",
+          "c4"
+        ],
+        "source": "osm_station_match"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5031693,
+          25.1369644
+        ]
+      },
+      "properties": {
+        "id": "xinbeitou",
+        "name": "Xinbeitou",
+        "line_ids": [
+          "c6"
+        ],
+        "source": "osm_station_match"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5447779,
+          24.9720887
+        ]
+      },
+      "properties": {
+        "id": "xindian",
+        "name": "Xindian",
+        "line_ids": [
+          "c4"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5457556,
+          24.979299
+        ]
+      },
+      "properties": {
+        "id": "xindian-district-office",
+        "name": "Xindian District Office",
+        "line_ids": [
+          "c4"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.4535942,
+          25.0531259
+        ]
+      },
+      "properties": {
+        "id": "xingfu",
+        "name": "Xingfu",
+        "line_ids": [
+          "c9"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.4670376,
+          25.1522715
+        ]
+      },
+      "properties": {
+        "id": "xingnan",
+        "name": "Xingnan",
+        "line_ids": [
+          "c11"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5331615,
+          25.0594133
+        ]
+      },
+      "properties": {
+        "id": "xingtian-temple",
+        "name": "Xingtian Temple",
+        "line_ids": [
+          "c5"
+        ],
+        "source": "osm_station_match"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5570598,
+          25.0054814
+        ]
+      },
+      "properties": {
+        "id": "xinhai",
+        "name": "Xinhai",
+        "line_ids": [
+          "c1"
+        ],
+        "source": "osm_station_match"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5281337,
+          24.993628
+        ]
+      },
+      "properties": {
+        "id": "xinhe-elementary-school",
+        "name": "Xinhe Elementary School",
+        "line_ids": [
+          "c10"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.4766827,
+          25.0310165
+        ]
+      },
+      "properties": {
+        "id": "xinpu",
+        "name": "Xinpu",
+        "line_ids": [
+          "c3",
+          "c9"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.4745346,
+          25.0312065
+        ]
+      },
+      "properties": {
+        "id": "xinpu-minsheng",
+        "name": "Xinpu Minsheng",
+        "line_ids": [
+          "c3",
+          "c9"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5238142,
+          25.1381282
+        ]
+      },
+      "properties": {
+        "id": "xinshi-1st-rd",
+        "name": "Xinshi 1st Rd.",
+        "line_ids": [
+          "c7"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5527328,
+          25.0331302
+        ]
+      },
+      "properties": {
+        "id": "xinyi-anhe",
+        "name": "Xinyi Anhe",
+        "line_ids": [
+          "c2"
+        ],
+        "source": "osm_station_match"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.4497351,
+          25.0406971
+        ]
+      },
+      "properties": {
+        "id": "xinzhuang",
+        "name": "Xinzhuang",
+        "line_ids": [
+          "c5"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.4553051,
+          25.0657441
+        ]
+      },
+      "properties": {
+        "id": "xinzhuang-fuduxin",
+        "name": "Xinzhuang Fuduxin",
+        "line_ids": [
+          "c11"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5286225,
+          24.9972334
+        ]
+      },
+      "properties": {
+        "id": "xiulang-bridge",
+        "name": "Xiulang Bridge",
+        "line_ids": [
+          "c9"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5126599,
+          25.007767
+        ]
+      },
+      "properties": {
+        "id": "yongan-market",
+        "name": "Yongan Market",
+        "line_ids": [
+          "c5"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5757045,
+          25.0408761
+        ]
+      },
+      "properties": {
+        "id": "yongchun",
+        "name": "Yongchun",
+        "line_ids": [
+          "c3"
+        ],
+        "source": "osm_station_match"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.4753571,
+          24.9891751
+        ]
+      },
+      "properties": {
+        "id": "yongning",
+        "name": "Yongning",
+        "line_ids": [
+          "c3"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5201361,
+          25.0714175
+        ]
+      },
+      "properties": {
+        "id": "yuanshan",
+        "name": "Yuanshan",
+        "line_ids": [
+          "c2"
+        ],
+        "source": "osm_station_match"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5803696,
+          24.9780617
+        ]
+      },
+      "properties": {
+        "id": "zhinan-temple-station",
+        "name": "Zhinan Temple Station",
+        "line_ids": [
+          "c0"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5225195,
+          25.1030034
+        ]
+      },
+      "properties": {
+        "id": "zhishan",
+        "name": "Zhishan",
+        "line_ids": [
+          "c2"
+        ],
+        "source": "osm_station_match"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5030897,
+          25.0013161
+        ]
+      },
+      "properties": {
+        "id": "zhonghe",
+        "name": "Zhonghe",
+        "line_ids": [
+          "c9"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5203914,
+          25.0526256
+        ]
+      },
+      "properties": {
+        "id": "zhongshan",
+        "name": "Zhongshan",
+        "line_ids": [
+          "c2",
+          "c4"
+        ],
+        "source": "osm_station_match"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5265984,
+          25.062674
+        ]
+      },
+      "properties": {
+        "id": "zhongshan-elementary-school",
+        "name": "Zhongshan Elementary School",
+        "line_ids": [
+          "c5"
+        ],
+        "source": "osm_station_match"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5442019,
+          25.0606868
+        ]
+      },
+      "properties": {
+        "id": "zhongshan-junior-high-school",
+        "name": "Zhongshan Junior High School",
+        "line_ids": [
+          "c1"
+        ],
+        "source": "osm_station_match"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.549479,
+          25.0415086
+        ]
+      },
+      "properties": {
+        "id": "zhongxiao-dunhua",
+        "name": "Zhongxiao Dunhua",
+        "line_ids": [
+          "c3"
+        ],
+        "source": "osm_station_match"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5437706,
+          25.0415409
+        ]
+      },
+      "properties": {
+        "id": "zhongxiao-fuxing",
+        "name": "Zhongxiao Fuxing",
+        "line_ids": [
+          "c1",
+          "c3"
+        ],
+        "source": "osm_station_match"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5328383,
+          25.04229
+        ]
+      },
+      "properties": {
+        "id": "zhongxiao-xinsheng",
+        "name": "Zhongxiao Xinsheng",
+        "line_ids": [
+          "c3",
+          "c5"
+        ],
+        "source": "osm_station_match"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.473374,
+          25.1309506
+        ]
+      },
+      "properties": {
+        "id": "zhongyi",
+        "name": "Zhongyi",
+        "line_ids": [
+          "c2"
+        ],
+        "source": "osm_station_match"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.4916677,
+          25.0132721
+        ]
+      },
+      "properties": {
+        "id": "zhongyuan",
+        "name": "Zhongyuan",
+        "line_ids": [
+          "c9"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.4798745,
+          25.1347177
+        ]
+      },
+      "properties": {
+        "id": "zhuwei",
+        "name": "Zhuwei",
+        "line_ids": [
+          "c2"
+        ],
+        "source": "affine_from_osm_matches"
+      }
+    }
+  ]
+}
