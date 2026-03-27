@@ -11,6 +11,7 @@ const state = {
   stationById: new Map(),
   lineById: new Map(),
   suppressNextMapClick: false,
+  sidebarVisible: true,
 };
 
 const elements = {
@@ -21,6 +22,8 @@ const elements = {
   clearViaBtn: document.getElementById("clearViaBtn"),
   findRouteBtn: document.getElementById("findRouteBtn"),
   resetBtn: document.getElementById("resetBtn"),
+  toggleSidebarBtn: document.getElementById("toggleSidebarBtn"),
+  openSidebarBtn: document.getElementById("openSidebarBtn"),
   statusText: document.getElementById("statusText"),
   selectionCard: document.getElementById("selectionCard"),
   summaryCard: document.getElementById("summaryCard"),
@@ -34,6 +37,7 @@ const SOURCE_IDS = {
   selectedStations: "selected-stations",
   route: "route-lines",
 };
+const SIDEBAR_TRANSITION_MS = 280;
 
 async function init() {
   if (!window.maplibregl) {
@@ -57,6 +61,7 @@ async function init() {
     state.stationById = new Map((state.network.stations || []).map((station) => [station.id, station]));
     buildStationCoordinateLookup();
     bindEvents();
+    applySidebarState();
     initializeMap();
     renderAll();
 
@@ -102,6 +107,11 @@ function bindEvents() {
   elements.clearViaBtn.addEventListener("click", clearViaStations);
   elements.findRouteBtn.addEventListener("click", findRouteForPoints);
   elements.resetBtn.addEventListener("click", resetAll);
+  elements.toggleSidebarBtn?.addEventListener("click", toggleSidebar);
+  elements.openSidebarBtn?.addEventListener("click", showSidebar);
+  window.addEventListener("resize", () => {
+    resizeMapAfterLayout(0);
+  });
 }
 
 function buildBasemapSource() {
@@ -464,6 +474,7 @@ function handleMapLoad() {
   updatePickedPointsSource();
   updateSelectedStationsSource();
   updateRouteSource(emptyFeatureCollection());
+  resizeMapAfterLayout(0);
 }
 
 function setPickMode(mode) {
@@ -478,6 +489,48 @@ function setPickMode(mode) {
         ? "Click anywhere on map to set END point."
         : "Via mode: click station circles to add/remove stopovers.",
   );
+}
+
+function toggleSidebar() {
+  state.sidebarVisible = !state.sidebarVisible;
+  applySidebarState();
+}
+
+function showSidebar() {
+  if (state.sidebarVisible) {
+    return;
+  }
+  state.sidebarVisible = true;
+  applySidebarState();
+}
+
+function applySidebarState() {
+  const shell = document.querySelector(".gis-shell");
+  if (!shell) {
+    return;
+  }
+
+  shell.classList.toggle("is-sidebar-hidden", !state.sidebarVisible);
+  if (elements.toggleSidebarBtn) {
+    elements.toggleSidebarBtn.textContent = state.sidebarVisible ? "Hide Sidebar" : "Show Sidebar";
+    elements.toggleSidebarBtn.setAttribute("aria-expanded", state.sidebarVisible ? "true" : "false");
+  }
+  if (elements.openSidebarBtn) {
+    elements.openSidebarBtn.textContent = state.sidebarVisible ? "Menu" : "Show Menu";
+    elements.openSidebarBtn.setAttribute("aria-expanded", state.sidebarVisible ? "true" : "false");
+  }
+  resizeMapAfterLayout(SIDEBAR_TRANSITION_MS);
+}
+
+function resizeMapAfterLayout(delayMs) {
+  if (!state.map) {
+    return;
+  }
+  requestAnimationFrame(() => state.map.resize());
+  if (delayMs > 0) {
+    window.setTimeout(() => state.map.resize(), delayMs);
+    window.setTimeout(() => state.map.resize(), delayMs + 120);
+  }
 }
 
 function toggleViaStation(stationId) {

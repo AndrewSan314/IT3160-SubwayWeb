@@ -59,7 +59,18 @@ GIS point routing:
 
 - User can click any two points on map (not required to click stations).
 - Backend snaps to nearest station, computes subway route, and returns access/egress walking legs.
+- Supports 2 routing modes:
+  - `nearest_station`: snap directly to nearest entry/exit station
+  - `best_route`: evaluate multiple station candidates and pick best total journey time
 - Endpoint: `POST /api/gis/route/points`
+
+GIS data validation:
+
+```powershell
+python scripts/map/validate_taipei_gis_data.py
+```
+
+This checks station/line coverage and flags suspicious segment endpoints that are too far from line geometry.
 
 ## Run
 
@@ -76,7 +87,7 @@ cd IT3160-SubwayWeb
 python -m uvicorn app.main:app --host 127.0.0.1 --port 8010
 ```
 
-Open `http://127.0.0.1:8010`.
+Open `http://127.0.0.1:8010` (GIS page).
 
 If port `8010` is already in use, switch to another free port, for example `8011`.
 

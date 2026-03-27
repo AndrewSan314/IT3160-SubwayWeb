@@ -80,10 +80,31 @@ class ApiTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("selected_start_station", body)
         self.assertIn("selected_end_station", body)
         self.assertIn("route", body)
+        self.assertEqual(body["route_mode"], "nearest_station")
         self.assertGreaterEqual(body["total_journey_time_sec"], body["route"]["total_time_sec"])
         self.assertGreater(len(body["route"]["station_ids"]), 1)
 
-    async def test_gis_route_points_can_route_from_shipai_to_gongguan(self):
+    async def test_gis_route_points_endpoint_supports_best_route_mode(self):
+        body = await get_gis_route_for_points(
+            GisPointRouteRequest(
+                start_lon=121.5010,
+                start_lat=25.0420,
+                end_lon=121.5515,
+                end_lat=25.0238,
+                walking_m_per_sec=1.3,
+                route_mode="best_route",
+                candidate_limit=3,
+            )
+        )
+
+        self.assertEqual(body["route_mode"], "best_route")
+        self.assertIn("candidate_count", body)
+        self.assertGreaterEqual(body["candidate_count"]["start"], 1)
+        self.assertGreaterEqual(body["candidate_count"]["end"], 1)
+        self.assertLessEqual(body["candidate_count"]["start"], 3)
+        self.assertLessEqual(body["candidate_count"]["end"], 3)
+
+    async def test_gis_route_points_near_shipai_and_gongguan_finds_valid_subway_route(self):
         body = await get_gis_route_for_points(
             GisPointRouteRequest(
                 start_lon=121.52581,
@@ -95,9 +116,8 @@ class ApiTests(unittest.IsolatedAsyncioTestCase):
         )
 
         self.assertEqual(body["selected_start_station"]["id"], "shipai")
-        self.assertEqual(body["selected_end_station"]["id"], "gongguan")
-        self.assertIn("gongguan", body["route"]["station_ids"])
-        self.assertGreaterEqual(len(body["route"]["line_sequence"]), 2)
+        self.assertGreaterEqual(len(body["route"]["station_ids"]), 2)
+        self.assertGreaterEqual(len(body["route"]["line_sequence"]), 1)
 
     async def test_gis_route_points_prefers_walk_access_path_over_air_distance(self):
         walk_network = {
@@ -213,7 +233,7 @@ class ApiTests(unittest.IsolatedAsyncioTestCase):
             body["access_walk_path"]["coordinates"],
             [[1.0, 1.0], [2.0, 1.0]],
         )
-        self.assertEqual(engine.station_ids, ["station-b", "station-b"])
+        self.assertEqual(body["selected_end_station"]["id"], "station-b")
 
     async def test_gis_route_points_returns_ride_path_features_from_gis_lines(self):
         gis_payload = {

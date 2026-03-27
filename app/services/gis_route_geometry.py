@@ -34,7 +34,7 @@ def build_ride_path_features(
     ride_features: list[dict[str, Any]] = []
 
     for ride_group in _group_contiguous_ride_steps(route_steps):
-        line_id = ride_group[0].get("line_id")
+        line_id = str(ride_group[0].get("line_id") or "")
         station_sequence = _build_station_sequence_for_group(
             ride_group,
             station_coords_by_id,
@@ -42,13 +42,19 @@ def build_ride_path_features(
         if len(station_sequence) < 2:
             continue
 
+        candidate_pool = _filter_line_features_for_line_id(all_line_features, line_id)
         candidate_features = _match_line_features_to_station_sequence(
             station_sequence,
-            all_line_features,
+            candidate_pool,
         )
         coordinates = _build_run_path_coordinates(
             station_sequence,
             candidate_features,
+        )
+        coordinates = _anchor_path_to_station_endpoints(
+            coordinates,
+            station_sequence[0],
+            station_sequence[-1],
         )
         ride_features.append(
             {
@@ -60,6 +66,7 @@ def build_ride_path_features(
                 "properties": {
                     "kind": "ride",
                     "line_id": line_id,
+                    "line_feature_count": len(candidate_features),
                 },
             }
         )
@@ -109,6 +116,23 @@ def _match_line_features_to_station_sequence(
     if not matched_features:
         matched_features = [scored_features[0][2]]
     return matched_features[:6]
+
+
+def _filter_line_features_for_line_id(
+    line_features: list[dict[str, Any]],
+    line_id: str,
+) -> list[dict[str, Any]]:
+    if not line_id:
+        return line_features
+
+    exact_matches = [
+        feature
+        for feature in line_features
+        if str(feature.get("properties", {}).get("line_id") or "") == line_id
+    ]
+    if exact_matches:
+        return exact_matches
+    return line_features
 
 
 def _group_contiguous_ride_steps(route_steps: list[dict[str, Any]]) -> list[list[dict[str, Any]]]:
@@ -179,13 +203,24 @@ def _build_run_path_coordinates(
                 continue
 
             average_distance_m = sum(snap.distance_m for snap in snapped_points) / len(snapped_points)
+            endpoint_max_distance_m = max(snapped_points[0].distance_m, snapped_points[-1].distance_m)
             path_coordinates = _slice_line_between_snaps(line, snapped_points[0], snapped_points[-1])
-            candidate = (average_distance_m, -len(path_coordinates), path_coordinates)
+            candidate = (
+                endpoint_max_distance_m,
+                average_distance_m,
+                -len(path_coordinates),
+                path_coordinates,
+            )
             if best_candidate is None or candidate < best_candidate:
                 best_candidate = candidate
 
-    if best_candidate is not None and best_candidate[0] <= RUN_AVERAGE_SNAP_THRESHOLD_M:
-        return best_candidate[2]
+    if best_candidate is not None:
+        endpoint_max_distance_m, average_distance_m, _, path_coordinates = best_candidate
+        if (
+            average_distance_m <= RUN_AVERAGE_SNAP_THRESHOLD_M
+            and endpoint_max_distance_m <= STEP_SNAP_THRESHOLD_M
+        ):
+            return path_coordinates
 
     merged_coordinates: list[Coordinate] = []
     for start_coordinate, end_coordinate in zip(station_sequence, station_sequence[1:], strict=False):
@@ -311,6 +346,20 @@ def _dedupe_coordinates(coordinates: list[Coordinate]) -> list[Coordinate]:
             continue
         deduped.append((float(lon), float(lat)))
     return deduped
+
+
+def _anchor_path_to_station_endpoints(
+    coordinates: list[Coordinate],
+    start_coordinate: Coordinate,
+    end_coordinate: Coordinate,
+) -> list[Coordinate]:
+    if not coordinates:
+        return [start_coordinate, end_coordinate]
+
+    anchored = list(coordinates)
+    anchored[0] = start_coordinate
+    anchored[-1] = end_coordinate
+    return _dedupe_coordinates(anchored)
 
 
 def _snaps_follow_single_direction(snapped_points: list[SnapPoint]) -> bool:

@@ -323,6 +323,13 @@ def find_nearest_station_by_walk(
         ),
     )[0]
     path_coordinates = _reconstruct_path(previous_nodes, start_node, target_node)
+    best_distance_m, path_coordinates = _prepend_origin_to_path(
+        lon=lon,
+        lat=lat,
+        snapped_start_node=start_node,
+        current_distance_m=best_distance_m,
+        path_coordinates=path_coordinates,
+    )
     return WalkPathResult(
         station_id=chosen_access.station_id,
         distance_m=best_distance_m,
@@ -330,6 +337,112 @@ def find_nearest_station_by_walk(
         access_point_coordinate=target_node,
         snapped_start_coordinate=start_node,
         access_point_name=chosen_access.name,
+    )
+
+
+def find_station_candidates_by_walk(
+    lon: float,
+    lat: float,
+    station_coords_by_id: dict[str, Coordinate],
+    station_access_points_geojson: dict[str, Any] | None,
+    walk_network_geojson: dict[str, Any] | None,
+    walk_graph: WalkGraph | None = None,
+    limit: int | None = None,
+    max_distance_m: float | None = None,
+) -> list[WalkPathResult]:
+    if not station_coords_by_id:
+        raise ValueError("No GIS stations available")
+
+    graph = walk_graph or build_walk_graph(walk_network_geojson)
+    if not graph.adjacency:
+        return _fallback_station_candidates_by_distance(
+            lon=lon,
+            lat=lat,
+            station_coords_by_id=station_coords_by_id,
+            limit=limit,
+            max_distance_m=max_distance_m,
+        )
+
+    access_points = extract_station_access_points(
+        station_access_points_geojson,
+        station_coords_by_id,
+    )
+    if not access_points:
+        return _fallback_station_candidates_by_distance(
+            lon=lon,
+            lat=lat,
+            station_coords_by_id=station_coords_by_id,
+            limit=limit,
+            max_distance_m=max_distance_m,
+        )
+
+    start_node = graph.nearest_node(lon, lat)
+    distances, previous_nodes = _dijkstra_all_nodes(graph, start_node)
+    best_by_station: dict[str, tuple[float, Coordinate, StationAccessPoint]] = {}
+
+    for access_point in access_points:
+        access_node = graph.nearest_node(*access_point.coordinate)
+        distance_m = distances.get(access_node)
+        if distance_m is None:
+            continue
+
+        current_best = best_by_station.get(access_point.station_id)
+        candidate = (
+            float(distance_m),
+            access_node,
+            access_point,
+        )
+        if current_best is None or candidate[0] < current_best[0]:
+            best_by_station[access_point.station_id] = candidate
+
+    if not best_by_station:
+        return _fallback_station_candidates_by_distance(
+            lon=lon,
+            lat=lat,
+            station_coords_by_id=station_coords_by_id,
+            limit=limit,
+            max_distance_m=max_distance_m,
+        )
+
+    ordered_candidates = sorted(
+        best_by_station.items(),
+        key=lambda item: (item[1][0], item[0]),
+    )
+    if limit is not None and limit > 0:
+        ordered_candidates = ordered_candidates[:limit]
+
+    results: list[WalkPathResult] = []
+    for station_id, (distance_m, access_node, access_point) in ordered_candidates:
+        if max_distance_m is not None and distance_m > max_distance_m:
+            continue
+        path_coordinates = _reconstruct_path(previous_nodes, start_node, access_node)
+        candidate_distance_m, candidate_path_coordinates = _prepend_origin_to_path(
+            lon=lon,
+            lat=lat,
+            snapped_start_node=start_node,
+            current_distance_m=distance_m,
+            path_coordinates=path_coordinates,
+        )
+        results.append(
+            WalkPathResult(
+                station_id=station_id,
+                distance_m=candidate_distance_m,
+                path_coordinates=candidate_path_coordinates,
+                access_point_coordinate=access_node,
+                snapped_start_coordinate=start_node,
+                access_point_name=access_point.name,
+            )
+        )
+
+    if results:
+        return results
+
+    return _fallback_station_candidates_by_distance(
+        lon=lon,
+        lat=lat,
+        station_coords_by_id=station_coords_by_id,
+        limit=limit,
+        max_distance_m=max_distance_m,
     )
 
 
@@ -363,6 +476,29 @@ def _dijkstra_to_targets(
     return float("inf"), previous_nodes, None
 
 
+def _dijkstra_all_nodes(
+    graph: WalkGraph,
+    start_node: Coordinate,
+) -> tuple[dict[Coordinate, float], dict[Coordinate, Coordinate]]:
+    distances: dict[Coordinate, float] = {start_node: 0.0}
+    previous_nodes: dict[Coordinate, Coordinate] = {}
+    queue: list[tuple[float, Coordinate]] = [(0.0, start_node)]
+
+    while queue:
+        current_distance, current_node = heapq.heappop(queue)
+        if current_distance > distances.get(current_node, float("inf")):
+            continue
+        for neighbor_node, edge_distance_m in graph.adjacency.get(current_node, []):
+            candidate_distance = current_distance + edge_distance_m
+            if candidate_distance >= distances.get(neighbor_node, float("inf")):
+                continue
+            distances[neighbor_node] = candidate_distance
+            previous_nodes[neighbor_node] = current_node
+            heapq.heappush(queue, (candidate_distance, neighbor_node))
+
+    return distances, previous_nodes
+
+
 def _reconstruct_path(
     previous_nodes: dict[Coordinate, Coordinate],
     start_node: Coordinate,
@@ -375,6 +511,88 @@ def _reconstruct_path(
         path.append(cursor)
     path.reverse()
     return path
+
+
+def _prepend_origin_to_path(
+    lon: float,
+    lat: float,
+    snapped_start_node: Coordinate,
+    current_distance_m: float,
+    path_coordinates: list[Coordinate],
+) -> tuple[float, list[Coordinate]]:
+    origin = (float(lon), float(lat))
+    if not path_coordinates:
+        if origin == snapped_start_node:
+            return current_distance_m, [origin]
+        return (
+            current_distance_m + haversine_distance_m(lat, lon, snapped_start_node[1], snapped_start_node[0]),
+            [origin, snapped_start_node],
+        )
+
+    if path_coordinates[0] == origin:
+        return current_distance_m, path_coordinates
+
+    if path_coordinates[0] != snapped_start_node:
+        return current_distance_m, [origin, *path_coordinates]
+
+    if origin == snapped_start_node:
+        return current_distance_m, path_coordinates
+
+    origin_to_graph_m = haversine_distance_m(lat, lon, snapped_start_node[1], snapped_start_node[0])
+    return (
+        current_distance_m + origin_to_graph_m,
+        [origin, *path_coordinates],
+    )
+
+
+def _fallback_station_candidates_by_distance(
+    lon: float,
+    lat: float,
+    station_coords_by_id: dict[str, Coordinate],
+    limit: int | None,
+    max_distance_m: float | None,
+) -> list[WalkPathResult]:
+    ordered = sorted(
+        (
+            (
+                station_id,
+                haversine_distance_m(lat, lon, station_lat, station_lon),
+                (station_lon, station_lat),
+            )
+            for station_id, (station_lon, station_lat) in station_coords_by_id.items()
+        ),
+        key=lambda item: item[1],
+    )
+    if limit is not None and limit > 0:
+        ordered = ordered[:limit]
+
+    results: list[WalkPathResult] = []
+    for station_id, distance_m, station_coordinate in ordered:
+        if max_distance_m is not None and distance_m > max_distance_m:
+            continue
+        results.append(
+            WalkPathResult(
+                station_id=station_id,
+                distance_m=distance_m,
+                path_coordinates=[(float(lon), float(lat)), station_coordinate],
+                access_point_coordinate=station_coordinate,
+                snapped_start_coordinate=(float(lon), float(lat)),
+            )
+        )
+    if results:
+        return results
+
+    nearest_station_id, nearest_distance_m = _nearest_station_by_distance(lon, lat, station_coords_by_id)
+    nearest_coordinate = station_coords_by_id[nearest_station_id]
+    return [
+        WalkPathResult(
+            station_id=nearest_station_id,
+            distance_m=nearest_distance_m,
+            path_coordinates=[(float(lon), float(lat)), nearest_coordinate],
+            access_point_coordinate=nearest_coordinate,
+            snapped_start_coordinate=(float(lon), float(lat)),
+        )
+    ]
 
 
 def _iter_line_strings(geometry: dict[str, Any]) -> list[list[Coordinate]]:

@@ -10,6 +10,7 @@ if str(PROJECT_ROOT) not in sys.path:
 from app.services import walk_network as walk_network_module
 from app.services.gis_route import build_walk_graph
 from app.services.gis_route import find_nearest_station_by_walk
+from app.services.walk_network import find_station_candidates_by_walk
 
 
 def _feature_collection(features):
@@ -186,6 +187,94 @@ class GisWalkRoutingTests(unittest.TestCase):
         self.assertEqual(result.station_id, "station-a")
         self.assertEqual(result.path_coordinates[0], (121.5, 25.05))
         self.assertEqual(result.path_coordinates[-1], (121.5005, 25.0505))
+
+    def test_find_station_candidates_by_walk_returns_sorted_candidates_with_limit(self):
+        walk_network = _feature_collection(
+            [
+                {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "LineString",
+                        "coordinates": [
+                            [0.0, 0.0],
+                            [1.0, 0.0],
+                            [2.0, 0.0],
+                        ],
+                    },
+                    "properties": {},
+                }
+            ]
+        )
+        station_coords_by_id = {
+            "station-a": (0.0, 0.0),
+            "station-b": (2.0, 0.0),
+        }
+        access_points = _feature_collection(
+            [
+                {
+                    "type": "Feature",
+                    "geometry": {"type": "Point", "coordinates": [0.0, 0.0]},
+                    "properties": {"station_id": "station-a", "name": "A Exit"},
+                },
+                {
+                    "type": "Feature",
+                    "geometry": {"type": "Point", "coordinates": [2.0, 0.0]},
+                    "properties": {"station_id": "station-b", "name": "B Exit"},
+                },
+            ]
+        )
+
+        candidates = find_station_candidates_by_walk(
+            lon=0.1,
+            lat=0.0,
+            station_coords_by_id=station_coords_by_id,
+            station_access_points_geojson=access_points,
+            walk_network_geojson=walk_network,
+            limit=1,
+        )
+
+        self.assertEqual(len(candidates), 1)
+        self.assertEqual(candidates[0].station_id, "station-a")
+
+    def test_find_station_candidates_by_walk_keeps_origin_point_in_path(self):
+        walk_network = _feature_collection(
+            [
+                {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "LineString",
+                        "coordinates": [
+                            [0.0, 0.0],
+                            [1.0, 0.0],
+                        ],
+                    },
+                    "properties": {},
+                }
+            ]
+        )
+        station_coords_by_id = {
+            "station-a": (1.0, 0.0),
+        }
+        access_points = _feature_collection(
+            [
+                {
+                    "type": "Feature",
+                    "geometry": {"type": "Point", "coordinates": [1.0, 0.0]},
+                    "properties": {"station_id": "station-a", "name": "A Exit"},
+                },
+            ]
+        )
+
+        candidates = find_station_candidates_by_walk(
+            lon=0.2,
+            lat=0.0,
+            station_coords_by_id=station_coords_by_id,
+            station_access_points_geojson=access_points,
+            walk_network_geojson=walk_network,
+            limit=1,
+        )
+
+        self.assertEqual(candidates[0].path_coordinates[0], (0.2, 0.0))
 
 
 if __name__ == "__main__":

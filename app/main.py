@@ -23,7 +23,7 @@ async def health_check():
 
 @app.get("/")
 async def index():
-    return FileResponse(Path(settings.static_dir) / "route-studio" / "index.html")
+    return FileResponse(Path(settings.static_dir) / "gis-studio" / "index.html")
 
 
 @app.get("/calibrate")

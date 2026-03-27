@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel
 from pydantic import Field
 
@@ -14,7 +16,6 @@ from app.services.gis_loader import get_cached_walk_graph
 from app.services.gis_route import extract_station_coordinates
 from app.services.gis_route_geometry import build_ride_path_features
 from app.services.gis_route import build_walk_graph
-from app.services.gis_route import find_nearest_station_by_walk
 from app.services.gis_route import walking_time_sec
 from app.services.mbtiles import get_mbtiles_metadata
 from app.services.mbtiles import read_mbtiles_tile
@@ -23,6 +24,8 @@ from app.services.subway_network_store import save_network_definition
 from app.services.runtime import get_network as get_subway_network
 from app.services.runtime import get_route_engine
 from app.services.runtime import refresh_runtime_caches
+from app.services.walk_network import WalkPathResult
+from app.services.walk_network import find_station_candidates_by_walk
 
 router = APIRouter(prefix="/api", tags=["subway"])
 settings = get_settings()
@@ -54,6 +57,9 @@ class GisPointRouteRequest(BaseModel):
     end_lat: float
     walking_m_per_sec: float = 1.3
     via_station_ids: list[str] = Field(default_factory=list)
+    route_mode: Literal["nearest_station", "best_route"] = "nearest_station"
+    candidate_limit: int = Field(default=6, ge=1, le=12)
+    max_station_walk_m: float | None = Field(default=None, gt=0)
 
 
 class CalibrationStationPayload(BaseModel):
@@ -367,6 +373,13 @@ async def get_gis_route_for_points(request: GisPointRouteRequest):
     station_coords_by_id = extract_station_coordinates(gis_payload["stations"])
     if not station_coords_by_id:
         raise HTTPException(status_code=500, detail="GIS station coordinates are unavailable")
+    network_station_coords_by_id = {
+        station_id: coordinate
+        for station_id, coordinate in station_coords_by_id.items()
+        if station_id in network.stations
+    }
+    if not network_station_coords_by_id:
+        raise HTTPException(status_code=500, detail="GIS station coordinates do not match network stations")
 
     try:
         walk_graph = (
@@ -374,78 +387,139 @@ async def get_gis_route_for_points(request: GisPointRouteRequest):
             if gis_payload.get("walk_network") is not None
             else get_cached_walk_graph(settings.qgis_geojson_dir)
         )
-        start_walk_result = find_nearest_station_by_walk(
+        candidate_limit = (
+            max(3, min(request.candidate_limit, 8))
+            if request.route_mode == "nearest_station"
+            else request.candidate_limit
+        )
+        start_walk_candidates = find_station_candidates_by_walk(
             request.start_lon,
             request.start_lat,
-            station_coords_by_id,
+            network_station_coords_by_id,
             gis_payload.get("station_access_points"),
             None,
             walk_graph=walk_graph,
+            limit=candidate_limit,
+            max_distance_m=request.max_station_walk_m,
         )
-        end_walk_result = find_nearest_station_by_walk(
+        end_walk_candidates = find_station_candidates_by_walk(
             request.end_lon,
             request.end_lat,
-            station_coords_by_id,
+            network_station_coords_by_id,
             gis_payload.get("station_access_points"),
             None,
             walk_graph=walk_graph,
+            limit=candidate_limit,
+            max_distance_m=request.max_station_walk_m,
         )
-        selected_start_station_id = start_walk_result.station_id
-        selected_end_station_id = end_walk_result.station_id
-        access_walk_distance_m = start_walk_result.distance_m
-        egress_walk_distance_m = end_walk_result.distance_m
+        if not start_walk_candidates or not end_walk_candidates:
+            raise ValueError("No reachable station candidate found from selected points")
 
         engine = get_route_engine()
-        route_result = engine.find_route_through_stations(
-            [
-                selected_start_station_id,
-                *request.via_station_ids,
-                selected_end_station_id,
-            ]
-        )
+        best_choice: tuple[tuple[int, int, int, int], WalkPathResult, WalkPathResult, object] | None = None
+        candidate_pairs: list[tuple[WalkPathResult, WalkPathResult]] = []
+        if request.route_mode == "nearest_station":
+            preferred_start = start_walk_candidates[0]
+            preferred_end = end_walk_candidates[0]
+            candidate_pairs.append((preferred_start, preferred_end))
+            candidate_pairs.extend((preferred_start, candidate_end) for candidate_end in end_walk_candidates[1:])
+            candidate_pairs.extend((candidate_start, preferred_end) for candidate_start in start_walk_candidates[1:])
+            candidate_pairs.extend(
+                (candidate_start, candidate_end)
+                for candidate_start in start_walk_candidates[1:]
+                for candidate_end in end_walk_candidates[1:]
+            )
+        else:
+            candidate_pairs.extend(
+                (start_walk_result, end_walk_result)
+                for start_walk_result in start_walk_candidates
+                for end_walk_result in end_walk_candidates
+            )
+
+        for start_walk_result, end_walk_result in candidate_pairs:
+            try:
+                route_result = engine.find_route_through_stations(
+                    [
+                        start_walk_result.station_id,
+                        *request.via_station_ids,
+                        end_walk_result.station_id,
+                    ]
+                )
+            except ValueError:
+                continue
+            access_walk_time_sec = walking_time_sec(start_walk_result.distance_m, request.walking_m_per_sec)
+            egress_walk_time_sec = walking_time_sec(end_walk_result.distance_m, request.walking_m_per_sec)
+            total_journey_time_sec = route_result.total_time_sec + access_walk_time_sec + egress_walk_time_sec
+            total_walk_time_sec = route_result.walking_time_sec + access_walk_time_sec + egress_walk_time_sec
+            score = (
+                total_journey_time_sec,
+                total_walk_time_sec,
+                route_result.transfer_count,
+                route_result.stop_count,
+            )
+            if best_choice is None or (
+                request.route_mode == "best_route" and score < best_choice[0]
+            ):
+                best_choice = (
+                    score,
+                    start_walk_result,
+                    end_walk_result,
+                    route_result,
+                )
+            if request.route_mode == "nearest_station":
+                break
     except ValueError as error:
         raise HTTPException(status_code=404, detail=str(error)) from error
 
+    if best_choice is None:
+        raise HTTPException(status_code=404, detail="No route found for selected points")
+
+    _, selected_start_walk_result, selected_end_walk_result, route_result = best_choice
+    selected_start_station_id = selected_start_walk_result.station_id
+    selected_end_station_id = selected_end_walk_result.station_id
+    access_walk_distance_m = selected_start_walk_result.distance_m
+    egress_walk_distance_m = selected_end_walk_result.distance_m
     access_walk_time_sec = walking_time_sec(access_walk_distance_m, request.walking_m_per_sec)
     egress_walk_time_sec = walking_time_sec(egress_walk_distance_m, request.walking_m_per_sec)
     station_lookup = _station_lookup_payload()
     route_payload = _enrich_route_payload(route_result.to_dict(), station_lookup, network)
     ride_path_features = build_ride_path_features(
         route_steps=route_payload.get("steps", []),
-        station_coords_by_id=station_coords_by_id,
+        station_coords_by_id=network_station_coords_by_id,
         stations_geojson=gis_payload.get("stations"),
         lines_geojson=gis_payload.get("lines"),
     )
 
     return {
         "source": gis_payload["source"],
+        "route_mode": request.route_mode,
         "start_point": {"lon": request.start_lon, "lat": request.start_lat},
         "end_point": {"lon": request.end_lon, "lat": request.end_lat},
         "selected_start_station": {
             **station_lookup[selected_start_station_id],
-            "lon": station_coords_by_id[selected_start_station_id][0],
-            "lat": station_coords_by_id[selected_start_station_id][1],
+            "lon": network_station_coords_by_id[selected_start_station_id][0],
+            "lat": network_station_coords_by_id[selected_start_station_id][1],
         },
         "selected_start_access_point": {
-            "name": start_walk_result.access_point_name,
-            "lon": start_walk_result.access_point_coordinate[0],
-            "lat": start_walk_result.access_point_coordinate[1],
+            "name": selected_start_walk_result.access_point_name,
+            "lon": selected_start_walk_result.access_point_coordinate[0],
+            "lat": selected_start_walk_result.access_point_coordinate[1],
         },
         "selected_end_station": {
             **station_lookup[selected_end_station_id],
-            "lon": station_coords_by_id[selected_end_station_id][0],
-            "lat": station_coords_by_id[selected_end_station_id][1],
+            "lon": network_station_coords_by_id[selected_end_station_id][0],
+            "lat": network_station_coords_by_id[selected_end_station_id][1],
         },
         "selected_end_access_point": {
-            "name": end_walk_result.access_point_name,
-            "lon": end_walk_result.access_point_coordinate[0],
-            "lat": end_walk_result.access_point_coordinate[1],
+            "name": selected_end_walk_result.access_point_name,
+            "lon": selected_end_walk_result.access_point_coordinate[0],
+            "lat": selected_end_walk_result.access_point_coordinate[1],
         },
         "via_stations": [
             {
                 **station_lookup[station_id],
-                "lon": station_coords_by_id.get(station_id, (None, None))[0],
-                "lat": station_coords_by_id.get(station_id, (None, None))[1],
+                "lon": network_station_coords_by_id.get(station_id, (None, None))[0],
+                "lat": network_station_coords_by_id.get(station_id, (None, None))[1],
             }
             for station_id in request.via_station_ids
         ],
@@ -453,20 +527,24 @@ async def get_gis_route_for_points(request: GisPointRouteRequest):
             "type": "LineString",
             "coordinates": [
                 [path_lon, path_lat]
-                for path_lon, path_lat in start_walk_result.path_coordinates
+                for path_lon, path_lat in selected_start_walk_result.path_coordinates
             ],
         },
         "egress_walk_path": {
             "type": "LineString",
             "coordinates": [
                 [path_lon, path_lat]
-                for path_lon, path_lat in end_walk_result.path_coordinates
+                for path_lon, path_lat in selected_end_walk_result.path_coordinates
             ],
         },
         "access_walk_distance_m": round(access_walk_distance_m, 1),
         "egress_walk_distance_m": round(egress_walk_distance_m, 1),
         "access_walk_time_sec": access_walk_time_sec,
         "egress_walk_time_sec": egress_walk_time_sec,
+        "candidate_count": {
+            "start": len(start_walk_candidates),
+            "end": len(end_walk_candidates),
+        },
         "ride_path_features": ride_path_features,
         "total_journey_time_sec": (
             route_payload["total_time_sec"] + access_walk_time_sec + egress_walk_time_sec
