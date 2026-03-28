@@ -12,6 +12,8 @@ from fastapi.responses import Response
 from app.config import get_settings
 from app.services.calibration_store import save_station_positions
 from app.services.gis_loader import build_gis_payload
+from app.services.gis_station_store import delete_gis_station as delete_gis_station_in_store
+from app.services.gis_station_store import save_gis_station_positions
 from app.services.gis_loader import get_cached_walk_graph
 from app.services.gis_route import extract_station_coordinates
 from app.services.gis_route_geometry import build_ride_path_features
@@ -60,6 +62,17 @@ class GisPointRouteRequest(BaseModel):
     route_mode: Literal["nearest_station", "best_route"] = "nearest_station"
     candidate_limit: int = Field(default=6, ge=1, le=12)
     max_station_walk_m: float | None = Field(default=None, gt=0)
+
+
+class GisStationPositionPayload(BaseModel):
+    id: str
+    lon: float
+    lat: float
+    deleted: bool = False
+
+
+class GisStationSaveRequest(BaseModel):
+    stations: list[GisStationPositionPayload]
 
 
 class CalibrationStationPayload(BaseModel):
@@ -315,6 +328,7 @@ async def get_gis_network():
         fallback_bounds=fallback_bounds,
         include_station_access_points=False,
         include_walk_network=False,
+        merge_missing_stations=False,
     )
     basemap = get_mbtiles_metadata(settings.gis_mbtiles_file)
     if basemap is None:
@@ -344,6 +358,46 @@ async def get_gis_basemap_tile(z: int, x: int, y: int):
         media_type=media_type,
         headers={"Cache-Control": "public, max-age=86400"},
     )
+
+
+@router.post("/gis/stations")
+async def save_gis_stations(request: GisStationSaveRequest):
+    positions = {
+        station.id: {
+            "lon": station.lon,
+            "lat": station.lat,
+            "deleted": station.deleted,
+        }
+        for station in request.stations
+    }
+    try:
+        updated_count = save_gis_station_positions(
+            settings.qgis_geojson_dir / "stations.geojson",
+            positions,
+        )
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+
+    return {
+        "message": "GIS station coordinates saved",
+        "updated_count": updated_count,
+    }
+
+
+@router.delete("/gis/stations/{station_id}")
+async def delete_gis_station(station_id: str):
+    try:
+        updated_count = delete_gis_station_in_store(
+            settings.qgis_geojson_dir / "stations.geojson",
+            station_id,
+        )
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+
+    return {
+        "message": "GIS station marked deleted",
+        "updated_count": updated_count,
+    }
 
 
 @router.post("/gis/route/points")
