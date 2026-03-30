@@ -3,3 +3,12 @@ __pycache__/
 
 app/data/debug_real_map_station_overlay*.jpg
 app/data/station_positions_real_map.json
+cache/
+debug_sample_tile.png
+OSMB-*.geojson
+*.osm.pbf
+Nhap_mon_AI_nhom17/
+taipei geojson/
+map/geography/taipei_osmnx_streets.png
+map/geography/taipei_osmnx_streets.svg
+map/geography/taipei_streets.graphml

@@ -296,14 +296,19 @@ def find_nearest_station_by_walk(
             snapped_start_coordinate=(lon, lat),
         )
 
+    start_coordinate = (float(lon), float(lat))
     start_node = graph.nearest_node(lon, lat)
     targets_by_node: dict[Coordinate, list[StationAccessPoint]] = {}
     for access_point in access_points:
         access_node = graph.nearest_node(*access_point.coordinate)
         targets_by_node.setdefault(access_node, []).append(access_point)
 
-    best_distance_m, previous_nodes, target_node = _dijkstra_to_targets(graph, start_node, set(targets_by_node))
-    if target_node is None:
+    graph_distance_m, previous_nodes, target_node, chosen_access = _dijkstra_to_best_access_point(
+        graph,
+        start_node,
+        targets_by_node,
+    )
+    if target_node is None or chosen_access is None:
         station_id, distance_m = _nearest_station_by_distance(lon, lat, station_coords_by_id)
         station_coordinate = station_coords_by_id[station_id]
         return WalkPathResult(
@@ -314,43 +319,59 @@ def find_nearest_station_by_walk(
             snapped_start_coordinate=(lon, lat),
         )
 
-    chosen_access = sorted(
-        targets_by_node[target_node],
-        key=lambda item: (
-            item.station_id,
-            item.coordinate[0],
-            item.coordinate[1],
-        ),
-    )[0]
-    path_coordinates = _reconstruct_path(previous_nodes, start_node, target_node)
+    path_coordinates = _build_path_coordinates(
+        start_coordinate,
+        _reconstruct_path(previous_nodes, start_node, target_node),
+        chosen_access.coordinate,
+    )
+    best_distance_m = (
+        _connector_distance_m(start_coordinate, start_node)
+        + graph_distance_m
+        + _connector_distance_m(target_node, chosen_access.coordinate)
+    )
     return WalkPathResult(
         station_id=chosen_access.station_id,
         distance_m=best_distance_m,
         path_coordinates=path_coordinates,
-        access_point_coordinate=target_node,
+        access_point_coordinate=chosen_access.coordinate,
         snapped_start_coordinate=start_node,
         access_point_name=chosen_access.name,
     )
 
 
-def _dijkstra_to_targets(
+def _dijkstra_to_best_access_point(
     graph: WalkGraph,
     start_node: Coordinate,
-    target_nodes: set[Coordinate],
-) -> tuple[float, dict[Coordinate, Coordinate], Coordinate | None]:
-    if start_node in target_nodes:
-        return 0.0, {}, start_node
+    targets_by_node: dict[Coordinate, list[StationAccessPoint]],
+) -> tuple[float, dict[Coordinate, Coordinate], Coordinate | None, StationAccessPoint | None]:
+    if start_node in targets_by_node:
+        chosen_access, _ = _choose_best_access_point(start_node, targets_by_node[start_node])
+        return 0.0, {}, start_node, chosen_access
 
     distances: dict[Coordinate, float] = {start_node: 0.0}
     previous_nodes: dict[Coordinate, Coordinate] = {}
     queue: list[tuple[float, Coordinate]] = [(0.0, start_node)]
+    best_total_distance_m = float("inf")
+    best_target_node: Coordinate | None = None
+    best_access: StationAccessPoint | None = None
 
     while queue:
         current_distance, current_node = heapq.heappop(queue)
         if current_distance > distances.get(current_node, float("inf")):
             continue
-        if current_node in target_nodes:
-            return current_distance, previous_nodes, current_node
+        if current_distance > best_total_distance_m:
+            break
+
+        if current_node in targets_by_node:
+            candidate_access, connector_distance_m = _choose_best_access_point(
+                current_node,
+                targets_by_node[current_node],
+            )
+            candidate_total_distance_m = current_distance + connector_distance_m
+            if candidate_total_distance_m < best_total_distance_m:
+                best_total_distance_m = candidate_total_distance_m
+                best_target_node = current_node
+                best_access = candidate_access
 
         for neighbor_node, edge_distance_m in graph.adjacency.get(current_node, []):
             candidate_distance = current_distance + edge_distance_m
@@ -360,7 +381,28 @@ def _dijkstra_to_targets(
             previous_nodes[neighbor_node] = current_node
             heapq.heappush(queue, (candidate_distance, neighbor_node))
 
-    return float("inf"), previous_nodes, None
+    if best_target_node is None or best_access is None:
+        return float("inf"), previous_nodes, None, None
+    return distances[best_target_node], previous_nodes, best_target_node, best_access
+
+
+def _choose_best_access_point(
+    graph_node: Coordinate,
+    access_points: list[StationAccessPoint],
+) -> tuple[StationAccessPoint, float]:
+    def connector_distance(access_point: StationAccessPoint) -> float:
+        return _connector_distance_m(graph_node, access_point.coordinate)
+
+    chosen_access = min(
+        access_points,
+        key=lambda item: (
+            connector_distance(item),
+            item.station_id,
+            item.coordinate[0],
+            item.coordinate[1],
+        ),
+    )
+    return chosen_access, connector_distance(chosen_access)
 
 
 def _reconstruct_path(
@@ -375,6 +417,31 @@ def _reconstruct_path(
         path.append(cursor)
     path.reverse()
     return path
+
+
+def _build_path_coordinates(
+    start_coordinate: Coordinate,
+    graph_path: list[Coordinate],
+    access_point_coordinate: Coordinate,
+) -> list[Coordinate]:
+    coordinates = [start_coordinate, *graph_path, access_point_coordinate]
+    normalized: list[Coordinate] = []
+    for coordinate in coordinates:
+        if normalized and normalized[-1] == coordinate:
+            continue
+        normalized.append(coordinate)
+    return normalized
+
+
+def _connector_distance_m(start_coordinate: Coordinate, end_coordinate: Coordinate) -> float:
+    if start_coordinate == end_coordinate:
+        return 0.0
+    return haversine_distance_m(
+        start_coordinate[1],
+        start_coordinate[0],
+        end_coordinate[1],
+        end_coordinate[0],
+    )
 
 
 def _iter_line_strings(geometry: dict[str, Any]) -> list[list[Coordinate]]:

@@ -208,6 +208,102 @@ class GisWalkRoutingTests(unittest.TestCase):
         self.assertEqual(result.path_coordinates[0], (121.5, 25.05))
         self.assertEqual(result.path_coordinates[-1], (121.5005, 25.0505))
 
+    def test_walk_routing_includes_exact_start_and_access_point_coordinates(self):
+        walk_network = _feature_collection(
+            [
+                {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "LineString",
+                        "coordinates": [
+                            [1.0, 0.0],
+                            [2.0, 0.0],
+                        ],
+                    },
+                    "properties": {},
+                }
+            ]
+        )
+        station_coords_by_id = {
+            "station-a": (2.1, 0.0),
+        }
+        access_points = _feature_collection(
+            [
+                {
+                    "type": "Feature",
+                    "geometry": {"type": "Point", "coordinates": [2.1, 0.0]},
+                    "properties": {"station_id": "station-a", "name": "A Exit"},
+                }
+            ]
+        )
+
+        graph = build_walk_graph(walk_network)
+        result = find_nearest_station_by_walk(
+            lon=0.0,
+            lat=0.0,
+            station_coords_by_id=station_coords_by_id,
+            station_access_points_geojson=access_points,
+            walk_network_geojson=walk_network,
+            walk_graph=graph,
+        )
+
+        self.assertEqual(result.station_id, "station-a")
+        self.assertEqual(result.access_point_coordinate, (2.1, 0.0))
+        self.assertEqual(
+            result.path_coordinates,
+            [(0.0, 0.0), (1.0, 0.0), (2.0, 0.0), (2.1, 0.0)],
+        )
+
+    def test_walk_routing_accounts_for_off_graph_access_connector_when_choosing_station(self):
+        walk_network = _feature_collection(
+            [
+                {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "LineString",
+                        "coordinates": [
+                            [0.0, 0.0],
+                            [0.0, 1.0],
+                            [0.0, 2.0],
+                        ],
+                    },
+                    "properties": {},
+                }
+            ]
+        )
+        station_coords_by_id = {
+            "station-a": (0.0, 2.0),
+            "station-b": (10.0, 1.0),
+        }
+        access_points = _feature_collection(
+            [
+                {
+                    "type": "Feature",
+                    "geometry": {"type": "Point", "coordinates": [0.0, 2.0]},
+                    "properties": {"station_id": "station-a", "name": "A Exit"},
+                },
+                {
+                    "type": "Feature",
+                    "geometry": {"type": "Point", "coordinates": [10.0, 1.0]},
+                    "properties": {"station_id": "station-b", "name": "B Exit"},
+                },
+            ]
+        )
+
+        graph = build_walk_graph(walk_network)
+        result = find_nearest_station_by_walk(
+            lon=0.0,
+            lat=0.0,
+            station_coords_by_id=station_coords_by_id,
+            station_access_points_geojson=access_points,
+            walk_network_geojson=walk_network,
+            walk_graph=graph,
+        )
+
+        self.assertEqual(result.station_id, "station-a")
+        self.assertEqual(result.access_point_name, "A Exit")
+        self.assertEqual(result.path_coordinates, [(0.0, 0.0), (0.0, 1.0), (0.0, 2.0)])
+
 
 if __name__ == "__main__":
     unittest.main()

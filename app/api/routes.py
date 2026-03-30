@@ -106,6 +106,13 @@ class BuilderNetworkSaveRequest(BaseModel):
     default_transfer_sec: int = 180
 
 
+def _raise_legacy_api_removed() -> None:
+    raise HTTPException(
+        status_code=410,
+        detail="Legacy studio API has been removed. Use /api/gis/* instead.",
+    )
+
+
 def _network_payload() -> dict:
     network = get_subway_network()
     return {
@@ -302,7 +309,7 @@ def _build_network_payload_from_builder(request: BuilderNetworkSaveRequest) -> d
 
 @router.get("/network")
 async def get_network():
-    return _network_payload()
+    _raise_legacy_api_removed()
 
 
 @router.get("/gis/network")
@@ -324,6 +331,22 @@ async def get_gis_network():
         include_walk_network=False,
         merge_missing_stations=False,
     )
+    payload["station_catalog"] = [
+        {
+            "id": station.id,
+            "name": station.name,
+            "line_ids": sorted(network.station_to_lines.get(station.id, set())),
+        }
+        for station in sorted(network.stations.values(), key=lambda item: item.name)
+    ]
+    payload["line_catalog"] = [
+        {
+            "id": line.id,
+            "name": line.name,
+            "color": line.color,
+        }
+        for line in sorted(network.lines.values(), key=lambda item: item.id)
+    ]
     basemap = get_mbtiles_metadata(settings.gis_mbtiles_file)
     if basemap is None:
         payload["basemap"] = {
@@ -531,80 +554,28 @@ async def get_gis_route_for_points(request: GisPointRouteRequest):
 
 @router.get("/builder/network")
 async def get_builder_network():
-    payload = load_network_definition(settings.data_file)
-    payload["map"] = _network_payload()["map"]
-    payload["diagram"] = _network_payload()["diagram"]
-    return payload
+    _raise_legacy_api_removed()
 
 
 @router.post("/route")
 async def get_route(request: RouteRequest):
-    engine = get_route_engine()
-    network = get_subway_network()
-    try:
-        result = engine.find_route_through_stations(
-            [
-                request.start_station_id,
-                *request.via_station_ids,
-                request.end_station_id,
-            ]
-        )
-    except ValueError as error:
-        raise HTTPException(status_code=404, detail=str(error)) from error
-
-    return _enrich_route_payload(result.to_dict(), _station_lookup_payload(), network)
+    del request
+    _raise_legacy_api_removed()
 
 
 @router.post("/route/points")
 async def get_route_for_points(request: PointRouteRequest):
-    engine = get_route_engine()
-    network = get_subway_network()
-    try:
-        result = engine.find_best_route_for_points(
-            start_x=request.start_x,
-            start_y=request.start_y,
-            end_x=request.end_x,
-            end_y=request.end_y,
-            walking_seconds_per_pixel=request.walking_seconds_per_pixel,
-            candidate_limit=request.candidate_limit,
-            max_station_walk_sec=request.max_station_walk_sec
-            if request.max_station_walk_sec is not None
-            else settings.point_route_max_station_walk_sec,
-            start_preferred_line_ids=request.start_preferred_line_ids,
-            end_preferred_line_ids=request.end_preferred_line_ids,
-            via_station_ids=request.via_station_ids,
-        )
-    except ValueError as error:
-        raise HTTPException(status_code=404, detail=str(error)) from error
-
-    result["route"] = _enrich_route_payload(
-        result["route"],
-        _station_lookup_payload(),
-        network,
-    )
-    return result
+    del request
+    _raise_legacy_api_removed()
 
 
 @router.post("/calibration/stations")
 async def save_calibration(request: CalibrationSaveRequest):
-    positions = {
-        station.id: {"x": station.x, "y": station.y}
-        for station in request.stations
-    }
-    updated_count = save_station_positions(settings.station_positions_file, positions)
-    refresh_runtime_caches()
-    return {
-        "message": "Station coordinates saved",
-        "updated_count": updated_count,
-    }
+    del request
+    _raise_legacy_api_removed()
 
 
 @router.post("/builder/network")
 async def save_builder_network(request: BuilderNetworkSaveRequest):
-    payload = _build_network_payload_from_builder(request)
-    saved = save_network_definition(settings.data_file, payload)
-    refresh_runtime_caches()
-    return {
-        "message": "Network definition saved",
-        "saved": saved,
-    }
+    del request
+    _raise_legacy_api_removed()

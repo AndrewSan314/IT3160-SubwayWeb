@@ -46,19 +46,14 @@ async function init() {
   }
 
   try {
-    const [networkResponse, gisResponse] = await Promise.all([
-      fetch("/api/network"),
-      fetch("/api/gis/network"),
-    ]);
-    state.network = await networkResponse.json();
+    const gisResponse = await fetch("/api/gis/network");
     state.gis = await gisResponse.json();
 
-    if (!networkResponse.ok || !gisResponse.ok) {
+    if (!gisResponse.ok) {
       throw new Error("Failed to load GIS API payload.");
     }
 
-    state.lineById = new Map((state.network.lines || []).map((line) => [line.id, line]));
-    state.stationById = new Map((state.network.stations || []).map((station) => [station.id, station]));
+    buildMetadataLookup();
     buildStationCoordinateLookup();
     bindEvents();
     applySidebarState();
@@ -78,13 +73,44 @@ async function init() {
           ? "GIS source loaded from QGIS export with local MBTiles basemap."
           : "GIS source loaded from QGIS export with OSM fallback basemap."
         : state.gis.basemap?.enabled
-          ? "Fallback coordinates in use with local MBTiles basemap."
-          : "Fallback coordinates in use. Put QGIS exports into app/data/gis for true geospatial accuracy.",
+          ? "Projected GIS topology fallback is active with local MBTiles basemap."
+          : "Projected GIS topology fallback is active. Put QGIS exports into app/data/gis for true geospatial accuracy.",
     );
   } catch (error) {
     console.error(error);
     setStatus(error.message || "Unable to initialize GIS studio.");
   }
+}
+
+function buildMetadataLookup() {
+  state.lineById = new Map((state.gis?.line_catalog || []).map((line) => [line.id, line]));
+  state.stationById = new Map((state.gis?.station_catalog || []).map((station) => [station.id, station]));
+
+  (state.gis?.lines?.features || []).forEach((feature) => {
+    const properties = feature?.properties || {};
+    const lineId = properties.line_id;
+    if (!lineId || state.lineById.has(lineId)) {
+      return;
+    }
+    state.lineById.set(lineId, {
+      id: lineId,
+      name: properties.line_name || lineId,
+      color: properties.line_color || "#7b8794",
+    });
+  });
+
+  (state.gis?.stations?.features || []).forEach((feature) => {
+    const properties = feature?.properties || {};
+    const stationId = properties.id;
+    if (!stationId || state.stationById.has(stationId)) {
+      return;
+    }
+    state.stationById.set(stationId, {
+      id: stationId,
+      name: properties.name || stationId,
+      line_ids: Array.isArray(properties.line_ids) ? properties.line_ids : [],
+    });
+  });
 }
 
 function buildStationCoordinateLookup() {

@@ -7,6 +7,8 @@ from pathlib import Path
 from unittest.mock import patch
 
 from fastapi import HTTPException
+from fastapi.responses import FileResponse
+from starlette.responses import RedirectResponse
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
@@ -38,7 +40,11 @@ from app.domain.models import RouteResult
 from app.domain.models import RouteStep
 from app.domain.models import Station
 from app.domain.models import SubwayNetwork
+from app.main import builder as builder_page
+from app.main import calibrate as calibrate_page
+from app.main import gis as gis_page
 from app.main import health_check
+from app.main import index as index_page
 
 
 class ApiTests(unittest.IsolatedAsyncioTestCase):
@@ -47,19 +53,24 @@ class ApiTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(body, {"status": "ok"})
 
-    async def test_network_endpoint_returns_stations_and_segments(self):
-        body = await get_network()
+    async def test_root_route_serves_gis_shell(self):
+        response = await index_page()
 
-        self.assertIn("map", body)
-        self.assertIn("diagram", body)
-        self.assertIn("stations", body)
-        self.assertIn("segments", body)
-        self.assertGreaterEqual(len(body["stations"]), 150)
-        self.assertEqual(body["map"]["image_url"], "/map/geography/taipei-vector-map-2022.svg")
-        self.assertTrue(body["map"]["is_vector"])
-        self.assertFalse(body["map"]["supports_line_hints"])
-        self.assertEqual(body["diagram"]["svg_url"], "/map/diagram/taipei_mrt_interactive.svg")
-        self.assertTrue(body["diagram"]["is_vector"])
+        self.assertIsInstance(response, FileResponse)
+        self.assertTrue(str(response.path).endswith("app\\static\\gis-studio\\index.html"))
+
+    async def test_gis_route_serves_gis_shell(self):
+        response = await gis_page()
+
+        self.assertIsInstance(response, FileResponse)
+        self.assertTrue(str(response.path).endswith("app\\static\\gis-studio\\index.html"))
+
+    async def test_legacy_pages_redirect_to_root_gis(self):
+        for page in (builder_page, calibrate_page):
+            with self.subTest(page=page.__name__):
+                response = await page()
+                self.assertIsInstance(response, RedirectResponse)
+                self.assertEqual(response.headers.get("location"), "/")
 
     async def test_gis_network_endpoint_returns_geojson_payload(self):
         body = await get_gis_network()
@@ -72,12 +83,16 @@ class ApiTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("bounds", body)
         self.assertIn("stations", body)
         self.assertIn("lines", body)
+        self.assertIn("station_catalog", body)
+        self.assertIn("line_catalog", body)
         self.assertNotIn("station_access_points", body)
         self.assertNotIn("walk_network", body)
         self.assertEqual(body["stations"]["type"], "FeatureCollection")
         self.assertEqual(body["lines"]["type"], "FeatureCollection")
         self.assertEqual(body["source"], "qgis_geojson_partial")
         self.assertGreaterEqual(len(body["stations"]["features"]), 100)
+        self.assertGreaterEqual(len(body["station_catalog"]), 150)
+        self.assertGreaterEqual(len(body["line_catalog"]), 12)
         self.assertNotIn("taoyuan-sports-park", station_ids)
 
     async def test_gis_route_points_endpoint_returns_station_route(self):
@@ -325,169 +340,139 @@ class ApiTests(unittest.IsolatedAsyncioTestCase):
             "#ff0000",
         )
 
-    async def test_builder_network_endpoint_returns_raw_station_lines(self):
-        body = await get_builder_network()
-
-        self.assertIn("station_lines", body)
-        self.assertIn("stations", body)
-        self.assertIn("lines", body)
-        self.assertIn("diagram", body)
-
-    async def test_route_endpoint_returns_route_payload(self):
-        network = await get_network()
-        station_lookup = {
-            station["name"]: station["id"]
-            for station in network["stations"]
+    async def test_gis_route_points_walk_path_uses_exact_clicked_point_and_access_point(self):
+        gis_payload = {
+            "source": "qgis_geojson",
+            "bounds": [0.0, 0.0, 3.0, 1.0],
+            "stations": {
+                "type": "FeatureCollection",
+                "features": [
+                    {
+                        "type": "Feature",
+                        "geometry": {"type": "Point", "coordinates": [2.1, 0.0]},
+                        "properties": {"id": "station-b", "name": "Station B"},
+                    }
+                ],
+            },
+            "lines": {"type": "FeatureCollection", "features": []},
+            "station_access_points": {
+                "type": "FeatureCollection",
+                "features": [
+                    {
+                        "type": "Feature",
+                        "geometry": {"type": "Point", "coordinates": [2.1, 0.0]},
+                        "properties": {"station_id": "station-b", "name": "B Exit"},
+                    }
+                ],
+            },
+            "walk_network": {
+                "type": "FeatureCollection",
+                "features": [
+                    {
+                        "type": "Feature",
+                        "geometry": {
+                            "type": "LineString",
+                            "coordinates": [
+                                [1.0, 0.0],
+                                [2.0, 0.0],
+                            ],
+                        },
+                        "properties": {},
+                    }
+                ],
+            },
         }
-
-        body = await get_route(
-            RouteRequest(
-                start_station_id=station_lookup["Ximen"],
-                end_station_id=station_lookup["Liuzhangli"],
-            )
+        network = SubwayNetwork(
+            stations={
+                "station-b": Station(id="station-b", name="Station B", x=0, y=0),
+            },
+            lines={},
+            station_lines=[],
+            segments=[],
+            transfers=[],
+            station_to_lines={"station-b": set()},
         )
-
-        self.assertGreaterEqual(body["transfer_count"], 0)
-        self.assertEqual(body["station_ids"][0], station_lookup["Ximen"])
-        self.assertEqual(body["station_ids"][-1], station_lookup["Liuzhangli"])
-        self.assertGreater(len(body["steps"]), 0)
-        self.assertTrue(any(step["kind"] == "ride" for step in body["steps"]))
-
-    async def test_point_route_endpoint_returns_best_station_pair(self):
-        network = await get_network()
-        stations_by_name = {
-            station["name"]: station
-            for station in network["stations"]
-        }
-        start_station = stations_by_name["Ximen"]
-        end_station = stations_by_name["Liuzhangli"]
-
-        body = await get_route_for_points(
-            PointRouteRequest(
-                start_x=start_station["x"],
-                start_y=start_station["y"],
-                end_x=end_station["x"],
-                end_y=end_station["y"],
-                walking_seconds_per_pixel=1.0,
-                start_preferred_line_ids=start_station["line_ids"],
-                end_preferred_line_ids=end_station["line_ids"],
-            )
+        dummy_route = RouteResult(
+            total_time_sec=0,
+            walking_time_sec=0,
+            transfer_count=0,
+            stop_count=0,
+            station_ids=["station-b"],
+            line_sequence=[],
+            steps=[],
         )
-
-        self.assertEqual(body["selected_start_station"]["id"], start_station["id"])
-        self.assertEqual(body["selected_end_station"]["id"], end_station["id"])
-        self.assertEqual(body["route"]["station_ids"][0], start_station["id"])
-        self.assertEqual(body["route"]["station_ids"][-1], end_station["id"])
-
-    async def test_point_route_endpoint_passes_via_stations_to_engine(self):
-        network_payload = await get_network()
-        station_ids = [station["id"] for station in network_payload["stations"][:3]]
-        start_station_id, via_station_id, end_station_id = station_ids
-        captured: dict = {}
 
         class DummyEngine:
-            def find_best_route_for_points(self, **kwargs):
-                captured.update(kwargs)
-                return {
-                    "start_point": {"x": 0, "y": 0},
-                    "end_point": {"x": 1, "y": 1},
-                    "selected_start_station": {"id": start_station_id, "name": "", "x": 0, "y": 0, "line_ids": []},
-                    "selected_end_station": {"id": end_station_id, "name": "", "x": 0, "y": 0, "line_ids": []},
-                    "via_stations": [{"id": via_station_id, "name": "", "x": 0, "y": 0, "line_ids": []}],
-                    "access_walk_distance_px": 0,
-                    "egress_walk_distance_px": 0,
-                    "access_walk_time_sec": 0,
-                    "egress_walk_time_sec": 0,
-                    "total_journey_time_sec": 0,
-                    "route": {
-                        "total_time_sec": 0,
-                        "walking_time_sec": 0,
-                        "transfer_count": 0,
-                        "stop_count": 0,
-                        "station_ids": [start_station_id, via_station_id, end_station_id],
-                        "line_sequence": [],
-                        "steps": [],
-                    },
-                }
+            def find_route_through_stations(self, station_ids):
+                self.station_ids = station_ids
+                return dummy_route
 
-        with patch("app.api.routes.get_route_engine", return_value=DummyEngine()):
-            body = await get_route_for_points(
-                PointRouteRequest(
-                    start_x=0,
-                    start_y=0,
-                    end_x=1,
-                    end_y=1,
-                    via_station_ids=[via_station_id],
+        engine = DummyEngine()
+
+        with (
+            patch("app.api.routes.get_subway_network", return_value=network),
+            patch("app.api.routes.get_route_engine", return_value=engine),
+            patch("app.api.routes.build_gis_payload", return_value=gis_payload),
+        ):
+            body = await get_gis_route_for_points(
+                GisPointRouteRequest(
+                    start_lon=0.0,
+                    start_lat=0.0,
+                    end_lon=2.1,
+                    end_lat=0.0,
+                    walking_m_per_sec=1.3,
                 )
             )
 
-        self.assertEqual(captured["via_station_ids"], [via_station_id])
-        self.assertEqual(body["route"]["station_ids"], [start_station_id, via_station_id, end_station_id])
-
-    async def test_save_calibration_calls_store_and_refreshes_cache(self):
-        request = CalibrationSaveRequest(
-            stations=[
-                {"id": "X1", "x": 1200, "y": 2800},
-                {"id": "X2", "x": 1400, "y": 3400},
-            ]
+        self.assertEqual(body["selected_start_access_point"]["name"], "B Exit")
+        self.assertEqual(body["selected_start_access_point"]["lon"], 2.1)
+        self.assertEqual(body["selected_start_access_point"]["lat"], 0.0)
+        self.assertEqual(
+            body["access_walk_path"]["coordinates"],
+            [[0.0, 0.0], [1.0, 0.0], [2.0, 0.0], [2.1, 0.0]],
         )
 
-        with (
-            patch("app.api.routes.save_station_positions", return_value=2) as save_mock,
-            patch("app.api.routes.refresh_runtime_caches") as refresh_mock,
-        ):
-            body = await save_calibration(request)
-
-        self.assertEqual(body["updated_count"], 2)
-        save_mock.assert_called_once()
-        refresh_mock.assert_called_once()
-
-    async def test_save_builder_network_persists_full_network_and_refreshes_cache(self):
-        request = BuilderNetworkSaveRequest(
+    async def test_legacy_api_endpoints_are_gone(self):
+        builder_request = BuilderNetworkSaveRequest(
             stations=[
                 BuilderStationPayload(id="S1", name="Alpha", x=100, y=200),
-                BuilderStationPayload(id="S2", name="Beta", x=220, y=260),
             ],
             lines=[
                 BuilderLinePayload(id="red", name="Red Line", color="#d94f4f"),
             ],
             station_lines=[
                 BuilderStationLinePayload(station_id="S1", line_id="red", seq=1),
-                BuilderStationLinePayload(station_id="S2", line_id="red", seq=2),
             ],
-            default_travel_sec=90,
-            default_transfer_sec=180,
         )
-
-        with (
-            patch("app.api.routes.save_network_definition", return_value={"stations": 2, "lines": 1}) as save_mock,
-            patch("app.api.routes.refresh_runtime_caches") as refresh_mock,
-        ):
-            body = await save_builder_network(request)
-
-        self.assertEqual(body["saved"]["stations"], 2)
-        self.assertEqual(body["saved"]["lines"], 1)
-        save_mock.assert_called_once()
-        refresh_mock.assert_called_once()
-
-    async def test_save_builder_network_rejects_unknown_station_line_reference(self):
-        request = BuilderNetworkSaveRequest(
+        calibration_request = CalibrationSaveRequest(
             stations=[
-                BuilderStationPayload(id="S1", name="Alpha", x=100, y=200),
-            ],
-            lines=[
-                BuilderLinePayload(id="red", name="Red Line", color="#d94f4f"),
-            ],
-            station_lines=[
-                BuilderStationLinePayload(station_id="S2", line_id="red", seq=1),
-            ],
+                {"id": "X1", "x": 1200, "y": 2800},
+            ]
         )
+        legacy_calls = [
+            ("network", lambda: get_network()),
+            (
+                "route",
+                lambda: get_route(
+                    RouteRequest(start_station_id="ximen", end_station_id="liuzhangli"),
+                ),
+            ),
+            (
+                "route_points",
+                lambda: get_route_for_points(
+                    PointRouteRequest(start_x=0, start_y=0, end_x=1, end_y=1),
+                ),
+            ),
+            ("builder_network", lambda: get_builder_network()),
+            ("save_builder_network", lambda: save_builder_network(builder_request)),
+            ("save_calibration", lambda: save_calibration(calibration_request)),
+        ]
 
-        with self.assertRaises(HTTPException) as context:
-            await save_builder_network(request)
-
-        self.assertEqual(context.exception.status_code, 400)
-        self.assertIn("Unknown station_id", context.exception.detail)
+        for name, factory in legacy_calls:
+            with self.subTest(endpoint=name):
+                with self.assertRaises(HTTPException) as context:
+                    await factory()
+                self.assertEqual(context.exception.status_code, 410)
 
     async def test_save_gis_stations_updates_station_geojson_coordinates(self):
         with tempfile.TemporaryDirectory() as tmpdir:

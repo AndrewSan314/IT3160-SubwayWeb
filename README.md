@@ -55,6 +55,9 @@ http://127.0.0.1:8010/gis
 `app/data/gis/lines.geojson` when available (EPSG:4326). If missing, it falls back
 to projected coordinates from legacy pixel data.
 
+If `OUTPUT_FILE.mbtiles` exists at repo root, GIS studio uses it as the local raster
+basemap. You can override that file path with `SUBWAY_GIS_MBTILES_FILE`.
+
 GIS point routing:
 
 - User can click any two points on map (not required to click stations).
@@ -78,17 +81,19 @@ python -m uvicorn app.main:app --host 127.0.0.1 --port 8010
 
 Open `http://127.0.0.1:8010`.
 
-If port `8010` is already in use, switch to another free port, for example `8011`.
+If you see `WinError 10048`, the port is already in use. Pick another free port, or use the helper scripts below.
 
 Helper scripts:
 
 ```powershell
-.\IT3160-SubwayWeb\start_web.ps1 8011
+.\IT3160-SubwayWeb\start_web.ps1
 ```
 
 ```cmd
-IT3160-SubwayWeb\start_web.bat 8011
+IT3160-SubwayWeb\start_web.bat
 ```
+
+Both helper scripts start from `8010` and automatically move to the next free port if needed.
 
 ## Tests
 

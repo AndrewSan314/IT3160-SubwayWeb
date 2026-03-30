@@ -4,6 +4,7 @@ from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.responses import FileResponse
+from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.api.routes import router as api_router
@@ -23,17 +24,17 @@ async def health_check():
 
 @app.get("/")
 async def index():
-    return FileResponse(Path(settings.static_dir) / "route-studio" / "index.html")
+    return FileResponse(Path(settings.static_dir) / "gis-studio" / "index.html")
 
 
 @app.get("/calibrate")
 async def calibrate():
-    return FileResponse(Path(settings.static_dir) / "calibration" / "index.html")
+    return RedirectResponse(url="/", status_code=307)
 
 
 @app.get("/builder")
 async def builder():
-    return FileResponse(Path(settings.static_dir) / "builder" / "index.html")
+    return RedirectResponse(url="/", status_code=307)
 
 
 @app.get("/gis")

@@ -59,15 +59,12 @@ async function init() {
 
   try {
     setStatus('Loading GIS network...');
-    const [networkResponse, gisResponse] = await Promise.all([
-      fetch('/api/network'),
-      fetch('/api/gis/network'),
-    ]);
-    state.network = await networkResponse.json();
+    const gisResponse = await fetch('/api/gis/network');
     state.gis = await gisResponse.json();
+    state.network = buildNetworkCatalog(state.gis);
 
-    if (!networkResponse.ok || !gisResponse.ok) {
-      throw new Error('Failed to load network payload for admin.');
+    if (!gisResponse.ok) {
+      throw new Error(state.gis?.detail || 'Failed to load GIS payload for admin.');
     }
 
     state.lineById = new Map((state.network.lines || []).map((line) => [line.id, line]));
@@ -93,6 +90,74 @@ async function init() {
     setStatus(`Initialization error: ${error.message}`);
     elements.rulesSummary.textContent = JSON.stringify({ error: error.message }, null, 2);
   }
+}
+
+function buildNetworkCatalog(gisPayload) {
+  const stationCatalog = Array.isArray(gisPayload?.station_catalog) ? gisPayload.station_catalog : [];
+  const lineCatalog = Array.isArray(gisPayload?.line_catalog) ? gisPayload.line_catalog : [];
+  const stationFeatures = Array.isArray(gisPayload?.stations?.features) ? gisPayload.stations.features : [];
+  const lineFeatures = Array.isArray(gisPayload?.lines?.features) ? gisPayload.lines.features : [];
+
+  const stations = stationCatalog.length
+    ? stationCatalog.map((station) => ({
+        id: station.id,
+        name: station.name || station.id,
+        line_ids: Array.isArray(station.line_ids) ? station.line_ids : [],
+      }))
+    : stationFeatures
+        .map((feature) => {
+          const properties = feature?.properties || {};
+          if (!properties.id) {
+            return null;
+          }
+          return {
+            id: properties.id,
+            name: properties.name || properties.id,
+            line_ids: Array.isArray(properties.line_ids) ? properties.line_ids : [],
+          };
+        })
+        .filter(Boolean);
+
+  const lines = lineCatalog.length
+    ? lineCatalog.map((line) => ({
+        id: line.id,
+        name: line.name || line.id,
+        color: line.color || '#64748b',
+      }))
+    : [...new Map(
+        lineFeatures
+          .map((feature) => {
+            const properties = feature?.properties || {};
+            if (!properties.line_id) {
+              return null;
+            }
+            return [
+              properties.line_id,
+              {
+                id: properties.line_id,
+                name: properties.line_name || properties.line_id,
+                color: properties.line_color || '#64748b',
+              },
+            ];
+          })
+          .filter(Boolean)
+      ).values()];
+
+  const segments = lineFeatures
+    .map((feature) => {
+      const properties = feature?.properties || {};
+      if (!properties.line_id || !properties.from_station_id || !properties.to_station_id) {
+        return null;
+      }
+      return {
+        line_id: properties.line_id,
+        from_station_id: properties.from_station_id,
+        to_station_id: properties.to_station_id,
+      };
+    })
+    .filter(Boolean);
+
+  return { stations, lines, segments };
 }
 
 function bindEvents() {
@@ -367,6 +432,7 @@ function handleMapLoad() {
   });
 
   resetMapView();
+  applyMapBoundsConstraint();
   updateMapSources();
 }
 
@@ -394,6 +460,17 @@ function resetMapView() {
     ],
     { padding: 42, duration: 400 }
   );
+}
+
+function applyMapBoundsConstraint() {
+  if (!state.map) {
+    return;
+  }
+  const bounds = state.mapBounds;
+  state.map.setMaxBounds([
+    [bounds[0] - 0.04, bounds[1] - 0.04],
+    [bounds[2] + 0.04, bounds[3] + 0.04],
+  ]);
 }
 
 function setMode(mode) {
