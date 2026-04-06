@@ -56,6 +56,16 @@
         </section>
 
         <section>
+          <h2>Routing Algorithm</h2>
+          <label class="field-label" for="algorithmSelect">Algorithm</label>
+          <select id="algorithmSelect" class="input-select">
+            <option value="dijkstra" selected>Dijkstra</option>
+            <option value="astar">A*</option>
+          </select>
+          <p class="hint">Dijkstra giu nguyen logic mac dinh. A* dung heuristic de giam so node mo rong.</p>
+        </section>
+
+        <section>
           <h2>Actions</h2>
           <div class="actions">
             <button id="findRouteBtn" class="primary" type="button">Find Route</button>

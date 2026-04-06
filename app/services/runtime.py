@@ -8,6 +8,7 @@ from app.config import get_settings
 from app.domain.models import Segment
 from app.domain.models import SubwayNetwork
 from app.services.gis_route_geometry import _build_geojson_segment_index
+from app.services.astar_route_engine import AStarRouteEngine
 from app.services.route_engine import RouteEngine
 from app.services.subway_loader import NetworkBuildOptions
 from app.services.subway_loader import load_json_file
@@ -68,7 +69,7 @@ def _load_network_cached(
     return network
 
 
-def get_route_engine() -> RouteEngine:
+def get_route_engine(algorithm: str = "dijkstra") -> RouteEngine:
     settings = get_settings()
     source_path = settings.data_file
     positions_path = settings.station_positions_file if settings.station_positions_file.exists() else None
@@ -80,6 +81,8 @@ def get_route_engine() -> RouteEngine:
         settings.qgis_geojson_dir,
     )
 
+    normalized_algorithm = algorithm.strip().lower()
+
     return _load_route_engine_cached(
         str(source_path),
         str(positions_path) if positions_path else "",
@@ -89,10 +92,11 @@ def get_route_engine() -> RouteEngine:
         settings.auto_walk_transfer_radius,
         settings.auto_walk_seconds_per_unit,
         signature,
+        normalized_algorithm,
     )
 
 
-@lru_cache(maxsize=4)
+@lru_cache(maxsize=8)
 def _load_route_engine_cached(
     source_path: str,
     positions_path: str,
@@ -102,6 +106,7 @@ def _load_route_engine_cached(
     auto_walk_transfer_radius: float,
     auto_walk_seconds_per_unit: float,
     signature: str,
+    algorithm: str,
 ) -> RouteEngine:
     network = _load_network_cached(
         source_path,
@@ -113,7 +118,11 @@ def _load_route_engine_cached(
         auto_walk_seconds_per_unit,
         signature,
     )
-    return RouteEngine(network)
+    if algorithm == "dijkstra":
+        return RouteEngine(network)
+    if algorithm == "astar":
+        return AStarRouteEngine(network)
+    raise ValueError(f"Unsupported routing algorithm: {algorithm}")
 
 
 def refresh_runtime_caches() -> None:

@@ -57,13 +57,13 @@ class ApiTests(unittest.IsolatedAsyncioTestCase):
         response = await index_page()
 
         self.assertIsInstance(response, FileResponse)
-        self.assertTrue(str(response.path).endswith("app\\static\\gis-studio\\index.html"))
+        self.assertTrue(Path(response.path).as_posix().endswith("app/static/gis-studio/index.html"))
 
     async def test_gis_route_serves_gis_shell(self):
         response = await gis_page()
 
         self.assertIsInstance(response, FileResponse)
-        self.assertTrue(str(response.path).endswith("app\\static\\gis-studio\\index.html"))
+        self.assertTrue(Path(response.path).as_posix().endswith("app/static/gis-studio/index.html"))
 
     async def test_legacy_pages_redirect_to_root_gis(self):
         for page in (builder_page, calibrate_page):
@@ -431,6 +431,85 @@ class ApiTests(unittest.IsolatedAsyncioTestCase):
             body["access_walk_path"]["coordinates"],
             [[0.0, 0.0], [1.0, 0.0], [2.0, 0.0], [2.1, 0.0]],
         )
+
+    async def test_gis_route_points_passes_selected_algorithm_to_engine_factory(self):
+        gis_payload = {
+            "source": "qgis_geojson",
+            "bounds": [0.0, 0.0, 1.0, 1.0],
+            "stations": {
+                "type": "FeatureCollection",
+                "features": [
+                    {
+                        "type": "Feature",
+                        "geometry": {"type": "Point", "coordinates": [0.0, 0.0]},
+                        "properties": {"id": "station-a", "name": "Station A", "line_ids": ["c2"]},
+                    },
+                    {
+                        "type": "Feature",
+                        "geometry": {"type": "Point", "coordinates": [1.0, 1.0]},
+                        "properties": {"id": "station-b", "name": "Station B", "line_ids": ["c2"]},
+                    },
+                ],
+            },
+            "lines": {"type": "FeatureCollection", "features": []},
+            "station_access_points": None,
+            "walk_network": None,
+        }
+        network = SubwayNetwork(
+            stations={
+                "station-a": Station(id="station-a", name="Station A", x=0, y=0),
+                "station-b": Station(id="station-b", name="Station B", x=1, y=1),
+            },
+            lines={"c2": Line(id="c2", name="Line C2", color="#e3002d")},
+            station_lines=[],
+            segments=[],
+            transfers=[],
+            station_to_lines={"station-a": {"c2"}, "station-b": {"c2"}},
+        )
+        dummy_route = RouteResult(
+            total_time_sec=60,
+            walking_time_sec=0,
+            transfer_count=0,
+            stop_count=1,
+            station_ids=["station-a", "station-b"],
+            line_sequence=["c2"],
+            steps=[
+                RouteStep(
+                    kind="ride",
+                    station_id="station-a",
+                    line_id="c2",
+                    next_station_id="station-b",
+                    duration_sec=60,
+                )
+            ],
+        )
+
+        class DummyEngine:
+            def find_route_through_stations(self, station_ids):
+                self.station_ids = station_ids
+                return dummy_route
+
+        engine = DummyEngine()
+
+        with (
+            patch("app.api.routes.get_subway_network", return_value=network),
+            patch("app.api.routes.get_route_engine", return_value=engine) as get_route_engine_mock,
+            patch("app.api.routes.build_gis_payload", return_value=gis_payload),
+        ):
+            body = await get_gis_route_for_points(
+                GisPointRouteRequest(
+                    start_lon=0.0,
+                    start_lat=0.0,
+                    end_lon=1.0,
+                    end_lat=1.0,
+                    walking_m_per_sec=1.3,
+                    algorithm="astar",
+                )
+            )
+
+        get_route_engine_mock.assert_called_once_with("astar")
+        self.assertEqual(body["algorithm_used"], "astar")
+        self.assertEqual(body["route"]["algorithm_used"], "astar")
 
     async def test_legacy_api_endpoints_are_gone(self):
         builder_request = BuilderNetworkSaveRequest(

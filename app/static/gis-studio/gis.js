@@ -7,6 +7,7 @@ const state = {
   endPoint: null,
   viaStationIds: [],
   routeResult: null,
+  selectedAlgorithm: "dijkstra",
   stationCoordsById: new Map(),
   stationById: new Map(),
   lineById: new Map(),
@@ -28,6 +29,7 @@ const elements = {
   selectionCard: document.getElementById("selectionCard"),
   summaryCard: document.getElementById("summaryCard"),
   stepsList: document.getElementById("stepsList"),
+  algorithmSelect: document.getElementById("algorithmSelect"),
 };
 
 const SOURCE_IDS = {
@@ -132,6 +134,7 @@ function bindEvents() {
   elements.pickViaBtn.addEventListener("click", () => setPickMode("via"));
   elements.clearViaBtn.addEventListener("click", clearViaStations);
   elements.findRouteBtn.addEventListener("click", findRouteForPoints);
+  elements.algorithmSelect?.addEventListener("change", handleAlgorithmChange);
   elements.resetBtn.addEventListener("click", resetAll);
   elements.toggleSidebarBtn?.addEventListener("click", toggleSidebar);
   elements.openSidebarBtn?.addEventListener("click", showSidebar);
@@ -580,6 +583,14 @@ function clearViaStations() {
   setStatus("VIA stations cleared.");
 }
 
+function handleAlgorithmChange(event) {
+  state.selectedAlgorithm = event.target.value || "dijkstra";
+  state.routeResult = null;
+  updateRouteSource(emptyFeatureCollection());
+  renderAll();
+  setStatus(`Algorithm changed to ${state.selectedAlgorithm.toUpperCase()}. Click Find Route to recalculate.`);
+}
+
 async function findRouteForPoints() {
   if (!state.startPoint || !state.endPoint) {
     setStatus("Please pick both START and END points first.");
@@ -587,7 +598,7 @@ async function findRouteForPoints() {
   }
 
   try {
-    setStatus("Calculating route...");
+    setStatus(`Calculating route with ${state.selectedAlgorithm.toUpperCase()}...`);
     const response = await fetch("/api/gis/route/points", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -598,6 +609,7 @@ async function findRouteForPoints() {
         end_lat: state.endPoint.lat,
         via_station_ids: state.viaStationIds,
         walking_m_per_sec: 1.3,
+        algorithm: state.selectedAlgorithm,
       }),
     });
     const payload = await response.json();
@@ -606,10 +618,15 @@ async function findRouteForPoints() {
     }
 
     state.routeResult = payload;
+    const algorithmUsed = payload.algorithm_used || payload.route?.algorithm_used || state.selectedAlgorithm;
+    state.selectedAlgorithm = algorithmUsed;
+    if (elements.algorithmSelect) {
+      elements.algorithmSelect.value = algorithmUsed;
+    }
     updateSelectedStationsSource();
     updateRouteSource(buildRouteGeoJson(payload));
     renderAll();
-    setStatus("Route ready with highlighted travel path.");
+    setStatus(`Route ready with highlighted travel path (${state.selectedAlgorithm.toUpperCase()}).`);
   } catch (error) {
     console.error(error);
     setStatus(error.message || "Route calculation failed.");
@@ -853,6 +870,7 @@ function renderSummary() {
 
   elements.summaryCard.classList.remove("empty");
   elements.summaryCard.innerHTML = [
+    renderMetricCard("Algorithm", (state.routeResult.algorithm_used || route.algorithm_used || state.selectedAlgorithm || "dijkstra").toUpperCase()),
     renderMetricCard("Total Journey", formatDuration(state.routeResult.total_journey_time_sec || 0)),
     renderMetricCard("Subway Time", formatDuration(route.total_time_sec || 0)),
     renderMetricCard(
@@ -875,6 +893,15 @@ function renderSteps() {
 
   const route = state.routeResult.route || {};
   const items = [];
+
+  items.push(
+    renderStepCard({
+      title: `Using ${(state.routeResult.algorithm_used || route.algorithm_used || state.selectedAlgorithm || "dijkstra").toUpperCase()}`,
+      description: "Selected search algorithm for subway routing",
+      duration: formatDuration(route.total_time_sec || 0),
+      badge: "engine",
+    }),
+  );
 
   items.push(
     renderStepCard({

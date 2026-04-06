@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel
 from pydantic import Field
 
@@ -56,6 +58,7 @@ class GisPointRouteRequest(BaseModel):
     end_lat: float
     walking_m_per_sec: float = 1.3
     via_station_ids: list[str] = Field(default_factory=list)
+    algorithm: Literal["dijkstra", "astar"] = "dijkstra"
 
 
 class GisStationPositionPayload(BaseModel):
@@ -472,7 +475,7 @@ async def get_gis_route_for_points(request: GisPointRouteRequest):
         access_walk_distance_m = start_walk_result.distance_m
         egress_walk_distance_m = end_walk_result.distance_m
 
-        engine = get_route_engine()
+        engine = get_route_engine(request.algorithm)
         route_result = engine.find_route_through_stations(
             [
                 selected_start_station_id,
@@ -487,6 +490,7 @@ async def get_gis_route_for_points(request: GisPointRouteRequest):
     egress_walk_time_sec = walking_time_sec(egress_walk_distance_m, request.walking_m_per_sec)
     station_lookup = _station_lookup_payload()
     route_payload = _enrich_route_payload(route_result.to_dict(), station_lookup, network)
+    route_payload["algorithm_used"] = request.algorithm
     ride_path_features = build_ride_path_features(
         route_steps=route_payload.get("steps", []),
         station_coords_by_id=station_coords_by_id,
@@ -496,6 +500,7 @@ async def get_gis_route_for_points(request: GisPointRouteRequest):
 
     return {
         "source": gis_payload["source"],
+        "algorithm_used": request.algorithm,
         "start_point": {"lon": request.start_lon, "lat": request.start_lat},
         "end_point": {"lon": request.end_lon, "lat": request.end_lat},
         "selected_start_station": {
