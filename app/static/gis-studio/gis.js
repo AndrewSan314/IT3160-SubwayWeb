@@ -58,6 +58,15 @@ const ROUTE_SELECTED_GLOW_COLOR = "rgba(88, 222, 27, 0.42)";
 const ROUTE_SELECTED_CORE_COLOR = "#d8f8c6";
 const VIA_STATION_COLOR = "#d97706";
 const VIA_STATION_TEXT_COLOR = "#7a4d00";
+const METRO_LINE_SORT_KEY = [
+  "match",
+  ["get", "line_id"],
+  "c3",
+  30,
+  "c9",
+  20,
+  10,
+];
 const PICKED_POINT_COLOR_MATCH = [
   "match",
   ["get", "role"],
@@ -349,6 +358,7 @@ function handleMapLoad() {
     layout: {
       "line-cap": "round",
       "line-join": "round",
+      "line-sort-key": METRO_LINE_SORT_KEY,
     },
     paint: {
       "line-color": "rgba(15,23,42,0.2)",

@@ -6,6 +6,15 @@ const MAX_FOCUS_LON_SPAN = 0.22;
 const MAX_FOCUS_LAT_SPAN = 0.18;
 const MIN_FOCUS_LON_SPAN = 0.12;
 const MIN_FOCUS_LAT_SPAN = 0.09;
+const METRO_LINE_SORT_KEY = [
+  'match',
+  ['get', 'line_id'],
+  'c3',
+  30,
+  'c9',
+  20,
+  10,
+];
 const MAP_SOURCE_IDS = {
   basemapLines: 'admin-metro-lines',
   basemapStations: 'admin-metro-stations',
@@ -381,6 +390,7 @@ function handleMapLoad() {
     layout: {
       'line-cap': 'round',
       'line-join': 'round',
+      'line-sort-key': METRO_LINE_SORT_KEY,
     },
     paint: {
       'line-color': 'rgba(15,23,42,0.18)',
