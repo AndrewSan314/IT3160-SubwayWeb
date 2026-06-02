@@ -187,6 +187,11 @@ class ApiTests(unittest.IsolatedAsyncioTestCase):
             feature.get("properties", {}).get("id")
             for feature in body["stations"]["features"]
         }
+        line_ids = {line["id"] for line in body["line_catalog"]}
+        line_colors = {
+            feature.get("properties", {}).get("line_color")
+            for feature in body["lines"]["features"]
+        }
 
         self.assertIn("source", body)
         self.assertIn("bounds", body)
@@ -200,9 +205,12 @@ class ApiTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(body["lines"]["type"], "FeatureCollection")
         self.assertEqual(body["source"], "qgis_geojson_partial")
         self.assertGreaterEqual(len(body["stations"]["features"]), 100)
-        self.assertGreaterEqual(len(body["station_catalog"]), 150)
-        self.assertGreaterEqual(len(body["line_catalog"]), 12)
+        self.assertGreaterEqual(len(body["station_catalog"]), 140)
+        self.assertGreaterEqual(len(body["line_catalog"]), 11)
+        self.assertNotIn("c11", line_ids)
+        self.assertNotIn("#cabfde", line_colors)
         self.assertNotIn("taoyuan-sports-park", station_ids)
+        self.assertNotIn("xinzhuang-fuduxin", station_ids)
 
     async def test_gis_route_points_endpoint_returns_station_route(self):
         body = await get_gis_route_for_points(

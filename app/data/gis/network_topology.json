@@ -1,30 +1,6 @@
 {
   "stations": [
     {
-      "id": "airport-hotel",
-      "name": "Airport Hotel",
-      "x": 1237.5,
-      "y": 2047.09,
-      "diagram_x": 55.0,
-      "diagram_y": 65.0
-    },
-    {
-      "id": "airport-terminal-1",
-      "name": "Airport Terminal 1",
-      "x": 1237.5,
-      "y": 2236.06,
-      "diagram_x": 55.0,
-      "diagram_y": 71.0
-    },
-    {
-      "id": "airport-terminal-2",
-      "name": "Airport Terminal 2",
-      "x": 1237.5,
-      "y": 2141.57,
-      "diagram_x": 55.0,
-      "diagram_y": 68.0
-    },
-    {
       "id": "ankang",
       "name": "Ankang",
       "x": 2092.5,
@@ -95,14 +71,6 @@
       "y": 4566.59,
       "diagram_x": 88.0,
       "diagram_y": 145.0
-    },
-    {
-      "id": "chang-gung-memorial-hospital",
-      "name": "Chang Gung Memorial Hospital",
-      "x": 1237.5,
-      "y": 2613.98,
-      "diagram_x": 55.0,
-      "diagram_y": 83.0
     },
     {
       "id": "chiang-kai-shek-memorial-hall",
@@ -191,14 +159,6 @@
       "y": 2802.94,
       "diagram_x": 78.0,
       "diagram_y": 89.0
-    },
-    {
-      "id": "dayuan",
-      "name": "Dayuan",
-      "x": 1237.5,
-      "y": 1952.61,
-      "diagram_x": 55.0,
-      "diagram_y": 62.0
     },
     {
       "id": "dazhi",
@@ -313,14 +273,6 @@
       "diagram_y": 128.0
     },
     {
-      "id": "hengshan",
-      "name": "Hengshan",
-      "x": 1237.5,
-      "y": 1858.13,
-      "diagram_x": 55.0,
-      "diagram_y": 59.0
-    },
-    {
       "id": "hongshulin",
       "name": "Hongshulin",
       "x": 1395.0,
@@ -335,14 +287,6 @@
       "y": 3243.86,
       "diagram_x": 119.0,
       "diagram_y": 103.0
-    },
-    {
-      "id": "huanbei",
-      "name": "Huanbei",
-      "x": 1237.5,
-      "y": 1385.73,
-      "diagram_x": 55.0,
-      "diagram_y": 44.0
     },
     {
       "id": "huilong",
@@ -425,14 +369,6 @@
       "diagram_y": 44.0
     },
     {
-      "id": "kengkou",
-      "name": "Kengkou",
-      "x": 1237.5,
-      "y": 2330.54,
-      "diagram_x": 55.0,
-      "diagram_y": 74.0
-    },
-    {
       "id": "kunyang",
       "name": "Kunyang",
       "x": 2767.5,
@@ -441,36 +377,12 @@
       "diagram_y": 100.0
     },
     {
-      "id": "laojie-river",
-      "name": "Laojie River",
-      "x": 1237.5,
-      "y": 1291.24,
-      "diagram_x": 55.0,
-      "diagram_y": 41.0
-    },
-    {
-      "id": "linghang",
-      "name": "Linghang",
-      "x": 1237.5,
-      "y": 1763.65,
-      "diagram_x": 55.0,
-      "diagram_y": 56.0
-    },
-    {
       "id": "linguang",
       "name": "Linguang",
       "x": 2407.5,
       "y": 3653.28,
       "diagram_x": 107.0,
       "diagram_y": 116.0
-    },
-    {
-      "id": "linkou",
-      "name": "Linkou",
-      "x": 1237.5,
-      "y": 2519.5,
-      "diagram_x": 55.0,
-      "diagram_y": 80.0
     },
     {
       "id": "liuzhangli",
@@ -577,14 +489,6 @@
       "diagram_y": 132.0
     },
     {
-      "id": "national-taiwan-sport-university",
-      "name": "National Taiwan Sport University",
-      "x": 1237.5,
-      "y": 2708.46,
-      "diagram_x": 55.0,
-      "diagram_y": 86.0
-    },
-    {
       "id": "neihu",
       "name": "Neihu",
       "x": 2587.5,
@@ -679,14 +583,6 @@
       "y": 1385.73,
       "diagram_x": 75.0,
       "diagram_y": 44.0
-    },
-    {
-      "id": "shanbi",
-      "name": "Shanbi",
-      "x": 1237.5,
-      "y": 2425.02,
-      "diagram_x": 55.0,
-      "diagram_y": 77.0
     },
     {
       "id": "shilin",
@@ -873,22 +769,6 @@
       "diagram_y": 118.0
     },
     {
-      "id": "taishan",
-      "name": "Taishan",
-      "x": 1237.5,
-      "y": 2897.42,
-      "diagram_x": 55.0,
-      "diagram_y": 92.0
-    },
-    {
-      "id": "taishan-guihe",
-      "name": "Taishan Guihe",
-      "x": 1237.5,
-      "y": 2802.94,
-      "diagram_x": 55.0,
-      "diagram_y": 89.0
-    },
-    {
       "id": "tamkang-university",
       "name": "Tamkang University",
       "x": 1665.0,
@@ -919,22 +799,6 @@
       "y": 1385.73,
       "diagram_x": 71.0,
       "diagram_y": 44.0
-    },
-    {
-      "id": "taoyuan-hsr-station",
-      "name": "Taoyuan HSR Station",
-      "x": 1237.5,
-      "y": 1669.17,
-      "diagram_x": 55.0,
-      "diagram_y": 53.0
-    },
-    {
-      "id": "taoyuan-sports-park",
-      "name": "Taoyuan Sports Park",
-      "x": 1237.5,
-      "y": 1574.69,
-      "diagram_x": 55.0,
-      "diagram_y": 50.0
     },
     {
       "id": "technology-building",
@@ -1073,14 +937,6 @@
       "diagram_y": 102.0
     },
     {
-      "id": "xingnan",
-      "name": "Xingnan",
-      "x": 1237.5,
-      "y": 1480.21,
-      "diagram_x": 55.0,
-      "diagram_y": 47.0
-    },
-    {
       "id": "xingtian-temple",
       "name": "Xingtian Temple",
       "x": 2047.5,
@@ -1143,14 +999,6 @@
       "y": 3432.82,
       "diagram_x": 54.0,
       "diagram_y": 109.0
-    },
-    {
-      "id": "xinzhuang-fuduxin",
-      "name": "Xinzhuang Fuduxin",
-      "x": 1237.5,
-      "y": 2991.91,
-      "diagram_x": 55.0,
-      "diagram_y": 95.0
     },
     {
       "id": "xiulang-bridge",
@@ -1304,11 +1152,6 @@
       "id": "c10",
       "name": "Line C10",
       "color": "#d6cfba"
-    },
-    {
-      "id": "c11",
-      "name": "Line C11",
-      "color": "#cabfde"
     },
     {
       "id": "c2",
@@ -1536,111 +1379,6 @@
       "station_id": "shuangcheng",
       "line_id": "c10",
       "seq": 9
-    },
-    {
-      "station_id": "laojie-river",
-      "line_id": "c11",
-      "seq": 1
-    },
-    {
-      "station_id": "huanbei",
-      "line_id": "c11",
-      "seq": 2
-    },
-    {
-      "station_id": "xingnan",
-      "line_id": "c11",
-      "seq": 3
-    },
-    {
-      "station_id": "taoyuan-sports-park",
-      "line_id": "c11",
-      "seq": 4
-    },
-    {
-      "station_id": "taoyuan-hsr-station",
-      "line_id": "c11",
-      "seq": 5
-    },
-    {
-      "station_id": "linghang",
-      "line_id": "c11",
-      "seq": 6
-    },
-    {
-      "station_id": "hengshan",
-      "line_id": "c11",
-      "seq": 7
-    },
-    {
-      "station_id": "dayuan",
-      "line_id": "c11",
-      "seq": 8
-    },
-    {
-      "station_id": "airport-hotel",
-      "line_id": "c11",
-      "seq": 9
-    },
-    {
-      "station_id": "airport-terminal-2",
-      "line_id": "c11",
-      "seq": 10
-    },
-    {
-      "station_id": "airport-terminal-1",
-      "line_id": "c11",
-      "seq": 11
-    },
-    {
-      "station_id": "kengkou",
-      "line_id": "c11",
-      "seq": 12
-    },
-    {
-      "station_id": "shanbi",
-      "line_id": "c11",
-      "seq": 13
-    },
-    {
-      "station_id": "linkou",
-      "line_id": "c11",
-      "seq": 14
-    },
-    {
-      "station_id": "chang-gung-memorial-hospital",
-      "line_id": "c11",
-      "seq": 15
-    },
-    {
-      "station_id": "national-taiwan-sport-university",
-      "line_id": "c11",
-      "seq": 16
-    },
-    {
-      "station_id": "taishan-guihe",
-      "line_id": "c11",
-      "seq": 17
-    },
-    {
-      "station_id": "taishan",
-      "line_id": "c11",
-      "seq": 18
-    },
-    {
-      "station_id": "xinzhuang-fuduxin",
-      "line_id": "c11",
-      "seq": 19
-    },
-    {
-      "station_id": "new-taipei-industrial-park",
-      "line_id": "c11",
-      "seq": 20
-    },
-    {
-      "station_id": "sanchong",
-      "line_id": "c11",
-      "seq": 21
     },
     {
       "station_id": "tamsui",
@@ -2471,126 +2209,6 @@
       "line_id": "c10",
       "from_station_id": "xinhe-elementary-school",
       "to_station_id": "sunshine-sports-park",
-      "travel_sec": 60
-    },
-    {
-      "line_id": "c11",
-      "from_station_id": "airport-hotel",
-      "to_station_id": "airport-terminal-2",
-      "travel_sec": 60
-    },
-    {
-      "line_id": "c11",
-      "from_station_id": "airport-terminal-1",
-      "to_station_id": "kengkou",
-      "travel_sec": 60
-    },
-    {
-      "line_id": "c11",
-      "from_station_id": "airport-terminal-2",
-      "to_station_id": "airport-terminal-1",
-      "travel_sec": 60
-    },
-    {
-      "line_id": "c11",
-      "from_station_id": "chang-gung-memorial-hospital",
-      "to_station_id": "national-taiwan-sport-university",
-      "travel_sec": 60
-    },
-    {
-      "line_id": "c11",
-      "from_station_id": "dayuan",
-      "to_station_id": "airport-hotel",
-      "travel_sec": 60
-    },
-    {
-      "line_id": "c11",
-      "from_station_id": "hengshan",
-      "to_station_id": "dayuan",
-      "travel_sec": 60
-    },
-    {
-      "line_id": "c11",
-      "from_station_id": "huanbei",
-      "to_station_id": "xingnan",
-      "travel_sec": 60
-    },
-    {
-      "line_id": "c11",
-      "from_station_id": "kengkou",
-      "to_station_id": "shanbi",
-      "travel_sec": 60
-    },
-    {
-      "line_id": "c11",
-      "from_station_id": "laojie-river",
-      "to_station_id": "huanbei",
-      "travel_sec": 60
-    },
-    {
-      "line_id": "c11",
-      "from_station_id": "linghang",
-      "to_station_id": "hengshan",
-      "travel_sec": 60
-    },
-    {
-      "line_id": "c11",
-      "from_station_id": "linkou",
-      "to_station_id": "chang-gung-memorial-hospital",
-      "travel_sec": 60
-    },
-    {
-      "line_id": "c11",
-      "from_station_id": "national-taiwan-sport-university",
-      "to_station_id": "taishan-guihe",
-      "travel_sec": 60
-    },
-    {
-      "line_id": "c11",
-      "from_station_id": "new-taipei-industrial-park",
-      "to_station_id": "sanchong",
-      "travel_sec": 100
-    },
-    {
-      "line_id": "c11",
-      "from_station_id": "shanbi",
-      "to_station_id": "linkou",
-      "travel_sec": 60
-    },
-    {
-      "line_id": "c11",
-      "from_station_id": "taishan",
-      "to_station_id": "xinzhuang-fuduxin",
-      "travel_sec": 60
-    },
-    {
-      "line_id": "c11",
-      "from_station_id": "taishan-guihe",
-      "to_station_id": "taishan",
-      "travel_sec": 60
-    },
-    {
-      "line_id": "c11",
-      "from_station_id": "taoyuan-hsr-station",
-      "to_station_id": "linghang",
-      "travel_sec": 60
-    },
-    {
-      "line_id": "c11",
-      "from_station_id": "taoyuan-sports-park",
-      "to_station_id": "taoyuan-hsr-station",
-      "travel_sec": 60
-    },
-    {
-      "line_id": "c11",
-      "from_station_id": "xingnan",
-      "to_station_id": "taoyuan-sports-park",
-      "travel_sec": 60
-    },
-    {
-      "line_id": "c11",
-      "from_station_id": "xinzhuang-fuduxin",
-      "to_station_id": "new-taipei-industrial-park",
       "travel_sec": 60
     },
     {

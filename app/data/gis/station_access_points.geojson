@@ -5872,48 +5872,6 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
-          121.4475965,
-          25.0581395
-        ]
-      },
-      "properties": {
-        "station_id": "xinzhuang-fuduxin",
-        "name": "新莊副都心"
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          121.4475965,
-          25.0581395
-        ]
-      },
-      "properties": {
-        "station_id": "xinzhuang-fuduxin",
-        "name": "新莊副都心"
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          121.4475965,
-          25.0581395
-        ]
-      },
-      "properties": {
-        "station_id": "xinzhuang-fuduxin",
-        "name": "新莊副都心"
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
           121.5250498,
           24.9904059
         ]

@@ -942,7 +942,6 @@
         "id": "new-taipei-industrial-park",
         "name": "New Taipei Industrial Park",
         "line_ids": [
-          "c11",
           "c9"
         ],
         "source": "taipei_geojson"
@@ -1070,7 +1069,6 @@
         "id": "sanchong",
         "name": "Sanchong",
         "line_ids": [
-          "c11",
           "c5"
         ],
         "source": "taipei_geojson"
@@ -1979,24 +1977,6 @@
         "name": "Xinzhuang",
         "line_ids": [
           "c5"
-        ],
-        "source": "taipei_geojson"
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          121.4457935,
-          25.0591996
-        ]
-      },
-      "properties": {
-        "id": "xinzhuang-fuduxin",
-        "name": "Xinzhuang Fuduxin",
-        "line_ids": [
-          "c11"
         ],
         "source": "taipei_geojson"
       }
