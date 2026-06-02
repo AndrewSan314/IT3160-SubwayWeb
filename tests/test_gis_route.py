@@ -11,6 +11,7 @@ from app.services import walk_network as walk_network_module
 from app.services.gis_route import extract_station_coordinates
 from app.services.walk_network import build_walk_graph
 from app.services.walk_network import find_candidate_stations_by_walk
+from app.services.walk_network import find_walk_path
 from app.services.walk_network import find_nearest_station_by_walk
 
 
@@ -114,6 +115,106 @@ class GisWalkRoutingTests(unittest.TestCase):
 
         self.assertEqual(graph.nearest_node(-5.0, 0.0), (0.0, 0.0))
         self.assertEqual(graph.nearest_node(10.0, 0.0), (2.0, 0.0))
+
+    def test_find_walk_path_uses_nearby_connected_snap_when_nearest_node_is_isolated(self):
+        walk_network = _feature_collection(
+            [
+                {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "LineString",
+                        "coordinates": [
+                            [0.0, 0.0],
+                            [0.0, 0.0001],
+                        ],
+                    },
+                    "properties": {},
+                },
+                {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "LineString",
+                        "coordinates": [
+                            [0.0002, 0.0],
+                            [0.005, 0.0],
+                            [0.01, 0.0],
+                        ],
+                    },
+                    "properties": {},
+                },
+            ]
+        )
+
+        result = find_walk_path(
+            start_lon=0.0,
+            start_lat=0.0,
+            target_lon=0.01,
+            target_lat=0.0,
+            walk_graph=build_walk_graph(walk_network),
+        )
+
+        self.assertEqual(
+            result,
+            [
+                (0.0, 0.0),
+                (0.0002, 0.0),
+                (0.005, 0.0),
+                (0.01, 0.0),
+            ],
+        )
+
+    def test_find_walk_path_reuses_exact_path_cache(self):
+        walk_network = _feature_collection(
+            [
+                {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "LineString",
+                        "coordinates": [
+                            [0.0, 0.0],
+                            [0.005, 0.0],
+                            [0.01, 0.0],
+                        ],
+                    },
+                    "properties": {},
+                }
+            ]
+        )
+        graph = build_walk_graph(walk_network)
+
+        with patch(
+            "app.services.walk_network._walk_path_snap_candidates",
+            wraps=walk_network_module._walk_path_snap_candidates,
+        ) as snap_candidates:
+            first = find_walk_path(0.0, 0.0, 0.01, 0.0, graph)
+            second = find_walk_path(0.0, 0.0, 0.01, 0.0, graph)
+
+        self.assertEqual(second, first)
+        self.assertEqual(snap_candidates.call_count, 2)
+
+    def test_find_walk_path_cache_has_bounded_size(self):
+        walk_network = _feature_collection(
+            [
+                {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "LineString",
+                        "coordinates": [
+                            [0.0, 0.0],
+                            [0.005, 0.0],
+                            [0.01, 0.0],
+                        ],
+                    },
+                    "properties": {},
+                }
+            ]
+        )
+        graph = build_walk_graph(walk_network)
+
+        for index in range(walk_network_module.WALK_PATH_CACHE_MAXSIZE + 1):
+            find_walk_path(0.0, 0.0, 0.01 + index / 1_000_000_000.0, 0.0, graph)
+
+        self.assertEqual(len(graph.walk_path_cache), walk_network_module.WALK_PATH_CACHE_MAXSIZE)
 
     def test_walk_routing_prefers_station_with_shorter_road_path(self):
         walk_network = _feature_collection(

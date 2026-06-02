@@ -3,7 +3,7 @@ const ADMIN_SCENARIO_STORAGE_KEY = 'mrt_admin_scenarios';
 const LEGACY_ADMIN_SCENARIO_STORAGE_KEY = 'mrt_admin_scenarios_backup';
 const DEFAULT_VIEWPORT_BOUNDS = [121.44, 24.97, 121.62, 25.13];
 const MAX_FOCUS_LON_SPAN = 0.22;
-const MAX_FOCUS_LAT_SPAN = 0.16;
+const MAX_FOCUS_LAT_SPAN = 0.18;
 const MIN_FOCUS_LON_SPAN = 0.12;
 const MIN_FOCUS_LAT_SPAN = 0.09;
 const MAP_SOURCE_IDS = {
@@ -481,6 +481,28 @@ function handleMapLoad() {
       'circle-stroke-color': '#ffffff',
       'circle-stroke-width': 1.5,
       'circle-opacity': 0.86,
+    },
+  });
+
+  state.map.addLayer({
+    id: 'admin-stations-label',
+    type: 'symbol',
+    source: MAP_SOURCE_IDS.basemapStations,
+    minzoom: 10.8,
+    layout: {
+      'text-field': ['get', 'name'],
+      'text-font': ['Noto Sans Regular'],
+      'text-size': ['interpolate', ['linear'], ['zoom'], 10.8, 9, 14, 13.5],
+      'text-offset': [0.75, -0.65],
+      'text-anchor': 'left',
+      'text-allow-overlap': true,
+      'text-ignore-placement': false,
+    },
+    paint: {
+      'text-color': '#0f172a',
+      'text-halo-color': '#ffffff',
+      'text-halo-width': 1.5,
+      'text-opacity': ['interpolate', ['linear'], ['zoom'], 10.8, 0.72, 12.6, 0.96],
     },
   });
 

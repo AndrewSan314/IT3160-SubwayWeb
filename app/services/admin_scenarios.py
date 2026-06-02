@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import math
 from pathlib import Path
 from typing import Any
 
@@ -9,6 +8,8 @@ from app.domain.models import SubwayNetwork
 from app.domain.models import WalkTransfer
 from app.services.gis_route import extract_station_coordinates
 from app.services.gis_route_geometry import _build_geojson_segment_index
+from app.services.travel_defaults import DEFAULT_WALKING_M_PER_SEC
+from app.services.walk_network import find_walk_path
 
 
 from app.services.geo_utils import (
@@ -16,12 +17,11 @@ from app.services.geo_utils import (
     BLOCK_LINE_SEGMENT_THRESHOLD_M,
     haversine_distance_m,
     is_line_near_geometry,
+    walking_time_sec,
 )
-from app.services.travel_defaults import DEFAULT_WALKING_M_PER_SEC
 
 
 ADMIN_BLOCK_BYPASS_MAX_WALK_M = 1700.0
-ADMIN_BLOCK_BYPASS_WALK_M_PER_SEC = DEFAULT_WALKING_M_PER_SEC
 RAIN_SEVERITIES = {"light", "moderate", "heavy"}
 
 
@@ -54,6 +54,8 @@ def normalize_admin_scenarios(payload: dict[str, Any] | None) -> dict[str, Any]:
     normalized = default_admin_scenarios()
     if not isinstance(payload, dict):
         return normalized
+    if isinstance(payload.get("scenarios"), dict):
+        payload = payload["scenarios"]
 
     normalized["source"] = str(payload.get("source", "server"))
     normalized["generated_at"] = payload.get("generated_at")
@@ -69,13 +71,11 @@ def build_admin_scenario_effects(
     network: SubwayNetwork,
     gis_payload: dict[str, Any],
     scenarios: dict[str, Any],
+    precomputed_segment_index: dict[tuple[str, str, str], list[tuple[float, float]]] | None = None,
 ) -> dict[str, Any]:
     scenarios = normalize_admin_scenarios(scenarios)
     station_coords_by_id = extract_station_coordinates(gis_payload.get("stations") or {})
-    segment_index = _build_geojson_segment_index(
-        gis_payload.get("stations"),
-        gis_payload.get("lines"),
-    )
+    block_segments = scenarios.get("block_segments", [])
 
     banned_station_ids = {
         station["id"]
@@ -86,10 +86,16 @@ def build_admin_scenario_effects(
         station_coords_by_id,
         scenarios.get("rain_zones", []),
     )
-    blocked_segment_keys = _collect_blocked_segment_keys(
-        segment_index,
-        scenarios.get("block_segments", []),
-    )
+    if block_segments:
+        segment_index = precomputed_segment_index
+        if segment_index is None:
+            segment_index = _build_geojson_segment_index(
+                gis_payload.get("stations"),
+                gis_payload.get("lines"),
+            )
+        blocked_segment_keys = _collect_blocked_segment_keys(segment_index, block_segments)
+    else:
+        blocked_segment_keys = set()
     closed_station_ids = set(banned_station_ids)
 
     return {
@@ -97,14 +103,14 @@ def build_admin_scenario_effects(
             closed_station_ids
             or blocked_segment_keys
             or scenarios.get("rain_zones")
-            or scenarios.get("block_segments")
+            or block_segments
         ),
         "closed_station_ids": sorted(closed_station_ids),
         "explicit_banned_station_ids": sorted(banned_station_ids),
         "rain_station_ids": sorted(rain_station_ids),
         "closed_segment_keys": sorted(blocked_segment_keys),
         "rain_zone_count": len(scenarios.get("rain_zones", [])),
-        "block_segment_count": len(scenarios.get("block_segments", [])),
+        "block_segment_count": len(block_segments),
         "scenarios": scenarios,  # Preserve the original scenarios for metadata
     }
 
@@ -112,6 +118,10 @@ def build_admin_scenario_effects(
 def apply_admin_scenarios_to_network(
     network: SubwayNetwork,
     effects: dict[str, Any],
+    *,
+    walk_graph: Any | None = None,
+    station_coords_by_id: dict[str, tuple[float, float]] | None = None,
+    walk_path_settings: Any | None = None,
 ) -> SubwayNetwork:
     closed_station_ids = set(effects.get("closed_station_ids", []))
     closed_segment_keys = set(effects.get("closed_segment_keys", []))
@@ -172,37 +182,14 @@ def apply_admin_scenarios_to_network(
         if transfer.from_station_id in stations
         and transfer.to_station_id in stations
     ]
-    existing_walk_pairs = {
-        (transfer.from_station_id, transfer.to_station_id)
-        for transfer in walk_transfers
-    }
-    admin_walk_bypass_pairs: list[list[str]] = []
-    for segment_key in closed_segment_keys:
-        parts = segment_key.split(":")
-        if len(parts) != 3:
-            continue
-        _, from_station_id, to_station_id = parts
-        if from_station_id not in stations or to_station_id not in stations:
-            continue
-        distance_m = _station_distance_m(stations[from_station_id], stations[to_station_id])
-        if distance_m <= 0 or distance_m > ADMIN_BLOCK_BYPASS_MAX_WALK_M:
-            continue
-        duration_sec = max(1, int(round(distance_m / ADMIN_BLOCK_BYPASS_WALK_M_PER_SEC)))
-        for source_station_id, target_station_id in (
-            (from_station_id, to_station_id),
-            (to_station_id, from_station_id),
-        ):
-            if (source_station_id, target_station_id) in existing_walk_pairs:
-                continue
-            walk_transfers.append(
-                WalkTransfer(
-                    from_station_id=source_station_id,
-                    to_station_id=target_station_id,
-                    duration_sec=duration_sec,
-                )
-            )
-            existing_walk_pairs.add((source_station_id, target_station_id))
-            admin_walk_bypass_pairs.append([source_station_id, target_station_id])
+    admin_walk_bypass_pairs = _append_admin_walk_bypasses(
+        walk_transfers,
+        closed_segment_keys,
+        stations,
+        walk_graph,
+        station_coords_by_id or {},
+        walk_path_settings,
+    )
     stops = {
         stop_id: stop
         for stop_id, stop in network.stops.items()
@@ -228,16 +215,79 @@ def apply_admin_scenarios_to_network(
                 "closed_station_ids": sorted(closed_station_ids),
                 "closed_segment_keys": sorted(closed_segment_keys),
                 "block_segments": effects.get("scenarios", {}).get("block_segments", []),
+                "rain_station_ids": sorted(effects.get("rain_station_ids", [])),
+                "rain_zones": effects.get("scenarios", {}).get("rain_zones", []),
                 "walk_bypass_pairs": admin_walk_bypass_pairs,
             },
         },
     )
 
 
-def _station_distance_m(station_a: Any, station_b: Any) -> float:
-    if abs(station_a.y) <= 90 and abs(station_a.x) <= 180 and abs(station_b.y) <= 90 and abs(station_b.x) <= 180:
-        return haversine_distance_m(station_a.y, station_a.x, station_b.y, station_b.x)
-    return math.hypot(station_a.x - station_b.x, station_a.y - station_b.y)
+def _append_admin_walk_bypasses(
+    walk_transfers: list,
+    closed_segment_keys: set[str],
+    stations: dict[str, Any],
+    walk_graph: Any | None,
+    station_coords_by_id: dict[str, tuple[float, float]],
+    walk_path_settings: Any | None,
+) -> list[list[str]]:
+    if walk_graph is None or not getattr(walk_graph, "adjacency", None):
+        return []
+
+    existing_walk_pairs = {
+        (transfer.from_station_id, transfer.to_station_id)
+        for transfer in walk_transfers
+    }
+    bypass_pairs: list[list[str]] = []
+
+    for segment_key in sorted(closed_segment_keys):
+        parts = segment_key.split(":")
+        if len(parts) != 3:
+            continue
+        _, from_station_id, to_station_id = parts
+        if from_station_id not in stations or to_station_id not in stations:
+            continue
+        from_coord = station_coords_by_id.get(from_station_id)
+        to_coord = station_coords_by_id.get(to_station_id)
+        if from_coord is None or to_coord is None:
+            continue
+
+        path_coordinates = find_walk_path(
+            from_coord[0],
+            from_coord[1],
+            to_coord[0],
+            to_coord[1],
+            walk_graph,
+            settings=walk_path_settings,
+        )
+        distance_m = _walk_path_distance_m(path_coordinates)
+        if distance_m <= 0 or distance_m > ADMIN_BLOCK_BYPASS_MAX_WALK_M:
+            continue
+        duration_sec = max(1, walking_time_sec(distance_m, DEFAULT_WALKING_M_PER_SEC))
+
+        for source_station_id, target_station_id in (
+            (from_station_id, to_station_id),
+            (to_station_id, from_station_id),
+        ):
+            if (source_station_id, target_station_id) not in existing_walk_pairs:
+                walk_transfers.append(
+                    WalkTransfer(
+                        from_station_id=source_station_id,
+                        to_station_id=target_station_id,
+                        duration_sec=duration_sec,
+                    )
+                )
+                existing_walk_pairs.add((source_station_id, target_station_id))
+            bypass_pairs.append([source_station_id, target_station_id])
+
+    return bypass_pairs
+
+
+def _walk_path_distance_m(path_coordinates: list[tuple[float, float]]) -> float:
+    return sum(
+        haversine_distance_m(start[1], start[0], end[1], end[0])
+        for start, end in zip(path_coordinates, path_coordinates[1:], strict=False)
+    )
 
 
 def _normalize_rain_zones(raw_items: Any) -> list[dict[str, Any]]:

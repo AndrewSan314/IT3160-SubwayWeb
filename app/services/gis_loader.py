@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import hashlib
 import json
 import pickle
@@ -132,7 +133,8 @@ def _build_line_catalog(network: SubwayNetwork) -> list[dict[str, Any]]:
 
 def _load_geojson(path: Path) -> dict[str, Any] | None:
     signature = _path_signature(path)
-    return _load_geojson_cached(str(path), signature)
+    payload = _load_geojson_cached(str(path), signature)
+    return copy.deepcopy(payload) if payload is not None else None
 
 
 def get_cached_walk_graph(qgis_geojson_dir: Path) -> WalkGraph:

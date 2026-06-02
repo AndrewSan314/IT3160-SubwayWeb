@@ -24,8 +24,8 @@ MAX_REPAIRED_SEGMENT_DISTANCE_M = 3_000.0
 @dataclass(frozen=True)
 class NetworkBuildOptions:
     station_positions: dict[str, tuple[float, float]] = field(default_factory=dict)
-    default_transfer_sec: int = 30
-    line_switch_penalty: float = 180.0
+    default_transfer_sec: int = 90
+    line_switch_penalty: float = 15.0
     auto_walk_transfer_radius: float = 1500.0
     auto_walk_seconds_per_unit: float = DEFAULT_DIAGRAM_WALK_SECONDS_PER_UNIT
     repair_missing_segments: bool = False

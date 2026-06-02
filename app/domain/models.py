@@ -82,6 +82,7 @@ class RouteStep:
     next_station_id: str | None = None
     duration_sec: int = 0
     coordinates: list[tuple[float, float]] | None = None
+    rain_penalty_sec: int = 0
 
 
 @dataclass
@@ -93,6 +94,7 @@ class RouteResult:
     station_ids: list[str]
     line_sequence: list[str]
     steps: list[RouteStep]
+    rain_penalty_sec: int = 0
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -100,6 +102,7 @@ class RouteResult:
             "walking_time_sec": self.walking_time_sec,
             "transfer_count": self.transfer_count,
             "stop_count": self.stop_count,
+            "rain_penalty_sec": self.rain_penalty_sec,
             "station_ids": self.station_ids,
             "line_sequence": self.line_sequence,
             "steps": [
@@ -110,6 +113,7 @@ class RouteResult:
                     "next_station_id": step.next_station_id,
                     "duration_sec": step.duration_sec,
                     "coordinates": step.coordinates,
+                    "rain_penalty_sec": step.rain_penalty_sec,
                 }
                 for step in self.steps
             ],

@@ -6,6 +6,7 @@ Place QGIS exports in this folder to enable production-accurate GIS mode:
 - `stations.geojson`
 - `lines.geojson`
 - `station_access_points.geojson`
+- `water_areas.geojson`
 
 Requirements:
 
@@ -24,6 +25,7 @@ Manual editing notes:
 - To hide/delete a station node safely, set `properties.deleted` to `true` on that station feature instead of removing the whole feature block.
 - `station_access_points.geojson` is optional and can be edited directly when you want to move or remove station entrances/exits.
 - `walk_network.geojson` is machine-generated path data and is not intended for hand editing.
+- `water_areas.geojson` is machine-generated from OSM polygons. Regenerate it with `python scripts/map/download_water_areas.py`.
 
 All human-edited GIS GeoJSON files in this folder are formatted with indentation so they are easier to review and modify directly.
 

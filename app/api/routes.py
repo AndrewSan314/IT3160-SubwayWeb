@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import hashlib
+import json
 import logging
 from pathlib import Path
 from pydantic import BaseModel
@@ -21,7 +23,9 @@ from app.services.gis_route import extract_station_coordinates
 from app.services.gis_route_geometry import build_route_geometry_features
 from app.services.gis_runtime_artifacts import load_or_build_gis_runtime_artifacts
 from app.services.geo_utils import walking_time_sec
+from app.services.rain_penalty import rain_penalty_for_path as _rain_penalty_for_path
 from app.services.travel_defaults import DEFAULT_WALKING_M_PER_SEC
+from app.services.water_mask import load_water_mask
 from app.services.walk_network import (
     build_walk_graph,
     build_walk_targets_by_node,
@@ -47,29 +51,12 @@ logger = logging.getLogger(__name__)
 WALK_DISCOMFORT_FACTOR = 1.5
 TRANSFER_COMFORT_PENALTY_SEC = 2 * 60
 WALK_COMPARE_TIME_SEC = 20 * 60
-METRO_MIN_SHORT_WALK_SAVING_SEC = 7 * 60
-METRO_ALLOWED_SLOWER_SEC = 25 * 60
+METRO_MIN_WALK_SAVING_SEC = 7 * 60
+METRO_MAX_POINT_WALK_SEC = 20 * 60
 NORMAL_MAX_ACCESS_WALK_M = 1200.0
 STRATEGIC_MAX_ACCESS_WALK_M = 3000.0
 _GIS_ROUTE_CONTEXT_CACHE: dict[str, GisRouteContext] = {}
 _GIS_ROUTE_CONTEXT_CACHE_MAXSIZE = 4
-RAIN_SEVERITY_RULES = {
-    "light": {
-        "label": "Light",
-        "walking_multiplier": 1.5,
-        "station_access_penalty_sec": 45,
-    },
-    "moderate": {
-        "label": "Moderate",
-        "walking_multiplier": 2.5,
-        "station_access_penalty_sec": 120,
-    },
-    "heavy": {
-        "label": "Heavy",
-        "walking_multiplier": 4.0,
-        "station_access_penalty_sec": 240,
-    },
-}
 
 
 class RouteRequest(BaseModel):
@@ -99,6 +86,11 @@ class GisPointRouteRequest(BaseModel):
     walking_m_per_sec: float = DEFAULT_WALKING_M_PER_SEC
     via_station_ids: list[str] = Field(default_factory=list)
     admin_scenarios: dict | None = None
+
+
+class GisPointSnapRequest(BaseModel):
+    lon: float
+    lat: float
 
 
 class GisStationPositionPayload(BaseModel):
@@ -165,6 +157,7 @@ class GisRouteContext:
     station_coords_by_id: dict[str, tuple[float, float]]
     walk_graph: object
     walk_targets_by_node: dict
+    water_mask: object | None = None
     station_lookup: dict[str, dict] | None = None
     geojson_segment_index: dict | None = None
     geojson_line_colors: dict | None = None
@@ -479,93 +472,6 @@ def _rain_zones_from_effects(admin_effects: dict | None) -> list[dict]:
     return rain_zones if isinstance(rain_zones, list) else []
 
 
-def _rain_severity_rule(zone: dict) -> dict:
-    severity = str(zone.get("severity") or "moderate").lower()
-    return RAIN_SEVERITY_RULES.get(severity, RAIN_SEVERITY_RULES["moderate"])
-
-
-def _rain_zone_contains_point(point: tuple[float, float], zone: dict) -> bool:
-    center = zone.get("center") or {}
-    center_lon = center.get("lon")
-    center_lat = center.get("lat")
-    radius_m = zone.get("radius_m") or 0
-    if center_lon is None or center_lat is None or radius_m <= 0:
-        return False
-    return haversine_distance_m(point[1], point[0], center_lat, center_lon) <= radius_m
-
-
-def _strongest_rain_rule_for_points(points: list[tuple[float, float]], rain_zones: list[dict]) -> tuple[str | None, dict | None]:
-    strongest_severity = None
-    strongest_rule = None
-    strongest_multiplier = 1.0
-    for zone in rain_zones:
-        if not any(_rain_zone_contains_point(point, zone) for point in points):
-            continue
-        rule = _rain_severity_rule(zone)
-        if rule["walking_multiplier"] > strongest_multiplier:
-            strongest_severity = str(zone.get("severity") or "moderate").lower()
-            strongest_rule = rule
-            strongest_multiplier = rule["walking_multiplier"]
-    return strongest_severity, strongest_rule
-
-
-def _rain_penalty_for_path(
-    path_coordinates: list[tuple[float, float]],
-    rain_zones: list[dict],
-    walking_m_per_sec: float,
-    *,
-    access_point_coordinate: tuple[float, float] | None = None,
-    include_station_access_penalty: bool = False,
-) -> dict:
-    if not rain_zones or walking_m_per_sec <= 0:
-        return {
-            "penalty_sec": 0,
-            "affected_distance_m": 0.0,
-            "severity": None,
-            "walking_multiplier": 1.0,
-            "station_access_penalty_sec": 0,
-        }
-
-    extra_time_sec = 0.0
-    affected_distance_m = 0.0
-    strongest_severity = None
-    strongest_multiplier = 1.0
-
-    # Overlapping rain zones should not stack. Each walking segment uses the
-    # strongest zone touching that segment, then moves on to the next segment.
-    for start, end in zip(path_coordinates, path_coordinates[1:], strict=False):
-        midpoint = ((start[0] + end[0]) / 2, (start[1] + end[1]) / 2)
-        severity, rule = _strongest_rain_rule_for_points([start, midpoint, end], rain_zones)
-        if rule is None:
-            continue
-        distance_m = haversine_distance_m(start[1], start[0], end[1], end[0])
-        affected_distance_m += distance_m
-        multiplier = rule["walking_multiplier"]
-        extra_time_sec += (distance_m / walking_m_per_sec) * (multiplier - 1.0)
-        if multiplier > strongest_multiplier:
-            strongest_multiplier = multiplier
-            strongest_severity = severity
-
-    station_access_penalty_sec = 0
-    access_rule = None
-    if include_station_access_penalty and access_point_coordinate is not None:
-        severity, access_rule = _strongest_rain_rule_for_points([access_point_coordinate], rain_zones)
-    if access_rule is not None:
-        station_access_penalty_sec = access_rule["station_access_penalty_sec"]
-        if access_rule["walking_multiplier"] > strongest_multiplier:
-            strongest_multiplier = access_rule["walking_multiplier"]
-            strongest_severity = severity
-
-    penalty_sec = int(round(extra_time_sec + station_access_penalty_sec))
-    return {
-        "penalty_sec": penalty_sec,
-        "affected_distance_m": round(affected_distance_m, 1),
-        "severity": strongest_severity,
-        "walking_multiplier": strongest_multiplier,
-        "station_access_penalty_sec": station_access_penalty_sec,
-    }
-
-
 def _rain_penalty_for_walk(candidate, rain_zones: list[dict], walking_m_per_sec: float) -> dict:
     return _rain_penalty_for_path(
         list(candidate.path_coordinates or []),
@@ -627,6 +533,127 @@ def _build_walk_only_option(
     }
 
 
+def _build_estimated_walk_only_option(
+    *,
+    start_lon: float,
+    start_lat: float,
+    end_lon: float,
+    end_lat: float,
+    walking_m_per_sec: float,
+) -> dict:
+    distance_m = haversine_distance_m(start_lat, start_lon, end_lat, end_lon) * 1.25
+    walk_time_sec = walking_time_sec(distance_m, walking_m_per_sec)
+    return {
+        "path_coordinates": [(start_lon, start_lat), (end_lon, end_lat)],
+        "distance_m": distance_m,
+        "distance_source": "geo_estimate",
+        "walk_time_sec": walk_time_sec,
+        "rain_penalty": {
+            "penalty_sec": 0,
+            "affected_distance_m": 0.0,
+            "severity": None,
+            "walking_multiplier": 1.0,
+            "station_access_penalty_sec": 0,
+        },
+        "total_time_sec": walk_time_sec,
+        "has_road_path": True,
+    }
+
+
+def _walk_only_can_affect_metro_decision(
+    *,
+    start_lon: float,
+    start_lat: float,
+    end_lon: float,
+    end_lat: float,
+    walking_m_per_sec: float,
+    metro_total_time_sec: int,
+    rain_zones: list[dict] | None,
+) -> bool:
+    if rain_zones:
+        return True
+
+    lower_bound_time_sec = walking_time_sec(
+        haversine_distance_m(start_lat, start_lon, end_lat, end_lon),
+        walking_m_per_sec,
+    )
+    return metro_total_time_sec > lower_bound_time_sec - METRO_MIN_WALK_SAVING_SEC
+
+
+def _snap_point_to_walk_network(
+    lon: float,
+    lat: float,
+    walk_graph,
+    water_mask=None,
+) -> dict:
+    requested_point = (float(lon), float(lat))
+    snapped_point = requested_point
+    if walk_graph is not None and walk_graph.adjacency:
+        snapped_point = (
+            walk_graph.nearest_node_matching(
+                *requested_point,
+                predicate=lambda node: not water_mask.covers(*node),
+            )
+            if water_mask is not None
+            else walk_graph.nearest_node(*requested_point)
+        )
+
+    distance_m = haversine_distance_m(
+        requested_point[1],
+        requested_point[0],
+        snapped_point[1],
+        snapped_point[0],
+    )
+    return {
+        "requested_point": {"lon": requested_point[0], "lat": requested_point[1]},
+        "snapped_point": {"lon": snapped_point[0], "lat": snapped_point[1]},
+        "distance_m": round(distance_m, 1),
+        "was_snapped": snapped_point != requested_point,
+        "requested_point_is_water": bool(
+            water_mask is not None and water_mask.covers(*requested_point)
+        ),
+    }
+
+
+def _snap_point_route_request(
+    request: GisPointRouteRequest,
+    walk_graph,
+    water_mask=None,
+) -> tuple[GisPointRouteRequest, dict]:
+    start_snap = _snap_point_to_walk_network(
+        request.start_lon,
+        request.start_lat,
+        walk_graph,
+        water_mask,
+    )
+    end_snap = _snap_point_to_walk_network(
+        request.end_lon,
+        request.end_lat,
+        walk_graph,
+        water_mask,
+    )
+    snapped_request = GisPointRouteRequest(
+        start_lon=start_snap["snapped_point"]["lon"],
+        start_lat=start_snap["snapped_point"]["lat"],
+        end_lon=end_snap["snapped_point"]["lon"],
+        end_lat=end_snap["snapped_point"]["lat"],
+        walking_m_per_sec=request.walking_m_per_sec,
+        via_station_ids=list(request.via_station_ids),
+        admin_scenarios=request.admin_scenarios,
+    )
+    return snapped_request, {"start": start_snap, "end": end_snap}
+
+
+def _point_snap_response_fields(point_snaps: dict | None) -> dict:
+    if not point_snaps:
+        return {}
+    return {
+        "requested_start_point": point_snaps["start"]["requested_point"],
+        "requested_end_point": point_snaps["end"]["requested_point"],
+        "point_snaps": point_snaps,
+    }
+
+
 def _build_walk_only_response(
     *,
     gis_payload: dict,
@@ -634,6 +661,7 @@ def _build_walk_only_response(
     walk_option: dict,
     warnings: list[str] | None = None,
     selection_reason: str = "walk_only",
+    point_snaps: dict | None = None,
 ) -> dict:
     path_coordinates = walk_option.get("path_coordinates") or []
     return {
@@ -642,6 +670,7 @@ def _build_walk_only_response(
         "route_selection_reason": selection_reason,
         "start_point": {"lon": request.start_lon, "lat": request.start_lat},
         "end_point": {"lon": request.end_lon, "lat": request.end_lat},
+        **_point_snap_response_fields(point_snaps),
         "total_journey_time_sec": walk_option["total_time_sec"],
         "base_journey_time_sec": walk_option["walk_time_sec"],
         "access_walk_path": {
@@ -665,8 +694,8 @@ def _build_walk_only_response(
             "walk_only_time_sec": walk_option["walk_time_sec"],
             "walk_only_distance_source": walk_option["distance_source"],
             "walk_compare_time_sec": WALK_COMPARE_TIME_SEC,
-            "metro_min_short_walk_saving_sec": METRO_MIN_SHORT_WALK_SAVING_SEC,
-            "metro_allowed_slower_sec": METRO_ALLOWED_SLOWER_SEC,
+            "metro_min_walk_saving_sec": METRO_MIN_WALK_SAVING_SEC,
+            "metro_max_point_walk_sec": METRO_MAX_POINT_WALK_SEC,
         },
         "route": {
             "total_time_sec": walk_option["walk_time_sec"],
@@ -709,14 +738,16 @@ def _route_candidate_evaluation(
     egress_walk_time = walking_time_sec(end_candidate.distance_m, walking_m_per_sec)
     access_rain = _rain_penalty_for_walk(start_candidate, rain_zones or [], walking_m_per_sec)
     egress_rain = _rain_penalty_for_walk(end_candidate, rain_zones or [], walking_m_per_sec)
-    rain_penalty_sec = access_rain["penalty_sec"] + egress_rain["penalty_sec"]
+    internal_rain_penalty_sec = getattr(route_result, "rain_penalty_sec", 0)
+    point_rain_penalty_sec = access_rain["penalty_sec"] + egress_rain["penalty_sec"]
+    rain_penalty_sec = internal_rain_penalty_sec + point_rain_penalty_sec
     route_walk_time = route_result.walking_time_sec
     ride_and_transfer_time = route_result.total_time_sec - route_walk_time
     point_walk_time = access_walk_time + egress_walk_time
     total_walk_time = route_walk_time + point_walk_time
     walking_discomfort_cost = int(round(total_walk_time * WALK_DISCOMFORT_FACTOR))
     transfer_comfort_cost = route_result.transfer_count * TRANSFER_COMFORT_PENALTY_SEC
-    actual_time = route_result.total_time_sec + point_walk_time + rain_penalty_sec
+    actual_time = route_result.total_time_sec + point_walk_time + point_rain_penalty_sec
     selection_cost = actual_time + walking_discomfort_cost + transfer_comfort_cost
     return {
         "candidate_set": candidate_set,
@@ -736,6 +767,7 @@ def _route_candidate_evaluation(
         "walk_discomfort_factor": WALK_DISCOMFORT_FACTOR,
         "walking_discomfort_cost_sec": walking_discomfort_cost,
         "transfer_comfort_penalty_sec": transfer_comfort_cost,
+        "internal_rain_penalty_sec": internal_rain_penalty_sec,
         "rain_penalty_sec": rain_penalty_sec,
         "actual_time_sec": actual_time,
         "selection_cost_sec": selection_cost,
@@ -791,6 +823,90 @@ def _summarize_candidate_diagnostics(
     return summarized[:limit]
 
 
+def _point_candidate_search_cost(
+    candidate,
+    walking_m_per_sec: float,
+    rain_zones: list[dict] | None,
+) -> tuple[int, int, int, int]:
+    walk_time = walking_time_sec(candidate.distance_m, walking_m_per_sec)
+    rain_penalty = _rain_penalty_for_walk(candidate, rain_zones or [], walking_m_per_sec)["penalty_sec"]
+    walk_discomfort = int(round(walk_time * WALK_DISCOMFORT_FACTOR))
+    return (walk_time + rain_penalty + walk_discomfort, walk_time, 0, 0)
+
+
+def _find_candidate_route_single_search(
+    *,
+    engine,
+    start_candidates: list,
+    end_candidates: list,
+    via_station_ids: list[str],
+    walking_m_per_sec: float,
+    rain_zones: list[dict] | None = None,
+    diagnostics: list[dict] | None = None,
+    candidate_set: str,
+) -> tuple[object | None, object | None, object | None, float] | None:
+    if not hasattr(engine, "find_route_between_candidates"):
+        return None
+
+    for s_cand in start_candidates:
+        for e_cand in end_candidates:
+            if (
+                _is_long_same_station_walk_pair(s_cand, e_cand)
+                and (len(start_candidates) > 1 or len(end_candidates) > 1)
+            ):
+                _append_candidate_diagnostic(
+                    diagnostics,
+                    {
+                        "candidate_set": candidate_set,
+                        "start_station_id": s_cand.station_id,
+                        "end_station_id": e_cand.station_id,
+                        "access_walk_m": round(s_cand.distance_m, 1),
+                        "egress_walk_m": round(e_cand.distance_m, 1),
+                        "status": "rejected",
+                        "reject_reason": "same_station_requires_long_walk",
+                    },
+                )
+
+    start_options = [
+        (
+            candidate,
+            candidate.station_id,
+            _point_candidate_search_cost(candidate, walking_m_per_sec, rain_zones),
+        )
+        for candidate in start_candidates
+    ]
+    end_options = [
+        (
+            candidate,
+            candidate.station_id,
+            _point_candidate_search_cost(candidate, walking_m_per_sec, rain_zones),
+        )
+        for candidate in end_candidates
+    ]
+
+    try:
+        selected_start, selected_end, route_result, _ = engine.find_route_between_candidates(
+            start_options,
+            end_options,
+            via_station_ids=via_station_ids,
+            require_ride=True,
+            rain_zones=rain_zones,
+        )
+    except ValueError:
+        return None, None, None, float("inf")
+
+    evaluation = _route_candidate_evaluation(
+        route_result,
+        selected_start,
+        selected_end,
+        walking_m_per_sec,
+        rain_zones,
+        candidate_set=candidate_set,
+    )
+    _append_candidate_diagnostic(diagnostics, evaluation)
+    return selected_start, selected_end, route_result, evaluation["selection_cost_sec"]
+
+
 def _find_best_candidate_route(
     *,
     engine,
@@ -805,6 +921,19 @@ def _find_best_candidate_route(
     best_candidate_pair = None
     best_route_result = None
     best_total_cost = float("inf")
+
+    optimized_result = _find_candidate_route_single_search(
+        engine=engine,
+        start_candidates=start_candidates,
+        end_candidates=end_candidates,
+        via_station_ids=via_station_ids,
+        walking_m_per_sec=walking_m_per_sec,
+        rain_zones=rain_zones,
+        diagnostics=diagnostics,
+        candidate_set=candidate_set,
+    )
+    if optimized_result is not None:
+        return optimized_result
 
     for s_cand in start_candidates:
         for e_cand in end_candidates:
@@ -882,6 +1011,19 @@ def _find_first_candidate_route(
     best_candidate_pair = None
     best_route_result = None
     best_total_cost = float("inf")
+
+    optimized_result = _find_candidate_route_single_search(
+        engine=engine,
+        start_candidates=start_candidates,
+        end_candidates=end_candidates,
+        via_station_ids=via_station_ids,
+        walking_m_per_sec=walking_m_per_sec,
+        rain_zones=rain_zones,
+        diagnostics=diagnostics,
+        candidate_set=candidate_set,
+    )
+    if optimized_result is not None:
+        return optimized_result
 
     for s_cand in start_candidates:
         for e_cand in end_candidates:
@@ -1034,6 +1176,7 @@ def _build_gis_route_context(network: object, signature: str) -> GisRouteContext
         station_coords_by_id=station_coords_by_id,
         signature=signature,
     )
+    water_mask = load_water_mask(settings.qgis_geojson_dir / "water_areas.geojson")
     return GisRouteContext(
         payload=gis_payload,
         station_coords_by_id=station_coords_by_id,
@@ -1047,6 +1190,7 @@ def _build_gis_route_context(network: object, signature: str) -> GisRouteContext
             if walk_graph is not None
             else {}
         ),
+        water_mask=water_mask,
         station_lookup=runtime_artifacts.station_lookup,
         geojson_segment_index=runtime_artifacts.geojson_segment_index,
         geojson_line_colors=runtime_artifacts.geojson_line_colors,
@@ -1070,6 +1214,7 @@ def _build_gis_route_context_signature() -> str:
         _path_signature(qgis_geojson_dir / "lines.geojson"),
         _path_signature(qgis_geojson_dir / "station_access_points.geojson"),
         _path_signature(qgis_geojson_dir / "walk_network.geojson"),
+        _path_signature(qgis_geojson_dir / "water_areas.geojson"),
     ]
     if positions_path is not None:
         parts.append(_path_signature(positions_path))
@@ -1079,9 +1224,47 @@ def _build_gis_route_context_signature() -> str:
     return "|".join(parts)
 
 
+def _network_context_signature(network: object) -> str:
+    metadata = getattr(network, "metadata", {}) or {}
+    admin_effects = metadata.get("admin_effects", {}) if isinstance(metadata, dict) else {}
+    stations = getattr(network, "stations", {}) or {}
+    lines = getattr(network, "lines", {}) or {}
+    segments = getattr(network, "segments", []) or []
+    payload = {
+        "admin_effects": admin_effects,
+        "stations": sorted(
+            (
+                station_id,
+                getattr(station, "x", None),
+                getattr(station, "y", None),
+            )
+            for station_id, station in stations.items()
+        ),
+        "lines": sorted(lines.keys()),
+        "segments": sorted(
+            (
+                getattr(segment, "line_id", None),
+                getattr(segment, "from_station_id", None),
+                getattr(segment, "to_station_id", None),
+            )
+            for segment in segments
+        ),
+    }
+    encoded = json.dumps(
+        payload,
+        sort_keys=True,
+        separators=(",", ":"),
+        default=str,
+    )
+    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+
 
 def get_gis_route_context(network: object) -> GisRouteContext:
-    signature = f"{_build_gis_route_context_signature()}|network:{id(network)}"
+    signature = (
+        f"{_build_gis_route_context_signature()}"
+        f"|network:{_network_context_signature(network)}"
+    )
     cached = _GIS_ROUTE_CONTEXT_CACHE.get(signature)
     if cached is not None:
         return cached
@@ -1238,6 +1421,17 @@ async def delete_gis_station(station_id: str):
     }
 
 
+@router.post("/gis/snap/point")
+async def snap_gis_point(request: GisPointSnapRequest):
+    context = get_gis_route_context(get_subway_network())
+    return _snap_point_to_walk_network(
+        request.lon,
+        request.lat,
+        context.walk_graph,
+        getattr(context, "water_mask", None),
+    )
+
+
 @router.post("/gis/route/points")
 async def get_gis_route_for_points(request: GisPointRouteRequest):
     try:
@@ -1256,17 +1450,29 @@ async def get_gis_route_for_points(request: GisPointRouteRequest):
             network=network,
             gis_payload=preview_context.payload,
             scenarios=scenarios,
+            precomputed_segment_index=preview_context.geojson_segment_index,
         )
         if effects.get("has_active_incidents"):
             admin_effects_for_response = effects
         if effects.get("closed_station_ids") or effects.get("closed_segment_keys"):
-            network = apply_admin_scenarios_to_network(network, effects)
+            network = apply_admin_scenarios_to_network(
+                network,
+                effects,
+                walk_graph=preview_context.walk_graph,
+                station_coords_by_id=preview_context.station_coords_by_id,
+                walk_path_settings=settings,
+            )
         for via_station_id in request.via_station_ids:
             if via_station_id not in network.stations:
                 raise HTTPException(status_code=400, detail=f"Unknown via station: {via_station_id}")
 
         context = get_gis_route_context(network)
         gis_payload = context.payload
+        request, point_snaps = _snap_point_route_request(
+            request,
+            context.walk_graph,
+            getattr(context, "water_mask", None),
+        )
         
         # CRITICAL: Filter station coordinates to only those active in the augmented network
         station_coords_by_id = {
@@ -1285,22 +1491,32 @@ async def get_gis_route_for_points(request: GisPointRouteRequest):
         if admin_effects_for_response:
             rejected_start_end_station_ids = set(admin_effects_for_response.get("explicit_banned_station_ids", []))
 
-        walk_only_option = _build_walk_only_option(
+        estimated_walk_only_option = _build_estimated_walk_only_option(
             start_lon=request.start_lon,
             start_lat=request.start_lat,
             end_lon=request.end_lon,
             end_lat=request.end_lat,
-            walk_graph=context.walk_graph,
             walking_m_per_sec=request.walking_m_per_sec,
-            rain_zones=rain_zones,
         )
+        walk_only_option = None
+
+        def get_walk_only_option() -> dict:
+            nonlocal walk_only_option
+            if walk_only_option is None:
+                walk_only_option = _build_walk_only_option(
+                    start_lon=request.start_lon,
+                    start_lat=request.start_lat,
+                    end_lon=request.end_lon,
+                    end_lat=request.end_lat,
+                    walk_graph=context.walk_graph,
+                    walking_m_per_sec=request.walking_m_per_sec,
+                    rain_zones=rain_zones,
+                )
+            return walk_only_option
+
         hard_scenario_active = bool(
             (admin_effects_for_response or {}).get("closed_station_ids")
             or (admin_effects_for_response or {}).get("closed_segment_keys")
-        )
-        can_choose_walk_only = (
-            not request.via_station_ids
-            and walk_only_option["has_road_path"]
         )
 
         raw_start_candidates = find_candidate_stations_by_walk(
@@ -1390,13 +1606,14 @@ async def get_gis_route_for_points(request: GisPointRouteRequest):
             selected_candidate_set = "normal"
 
         if best_route_result:
-            best_route_result = engine.find_route_through_stations(
-                [
-                    best_candidate_pair[0].station_id,
-                    *request.via_station_ids,
-                    best_candidate_pair[1].station_id,
-                ]
-            )
+            if not hasattr(engine, "find_route_between_candidates"):
+                best_route_result = engine.find_route_through_stations(
+                    [
+                        best_candidate_pair[0].station_id,
+                        *request.via_station_ids,
+                        best_candidate_pair[1].station_id,
+                    ]
+                )
             route_payload = best_route_result.to_dict()
 
         # FALLBACK: If no subway-involved route is found, suggest walking the whole way
@@ -1404,9 +1621,10 @@ async def get_gis_route_for_points(request: GisPointRouteRequest):
             return _build_walk_only_response(
                 gis_payload=gis_payload,
                 request=request,
-                walk_option=walk_only_option,
+                walk_option=get_walk_only_option(),
                 warnings=["subway_unreachable_walking_fallback"],
                 selection_reason="subway_unreachable_walking_fallback",
+                point_snaps=point_snaps,
             )
 
         start_walk_result, end_walk_result = best_candidate_pair
@@ -1428,13 +1646,42 @@ async def get_gis_route_for_points(request: GisPointRouteRequest):
             rain_zones,
             request.walking_m_per_sec,
         )
-        rain_penalty_sec = access_rain_penalty["penalty_sec"] + egress_rain_penalty["penalty_sec"]
-        metro_total_time_sec = route_payload["total_time_sec"] + access_walk_time_sec + egress_walk_time_sec + rain_penalty_sec
-        if can_choose_walk_only:
+        internal_rain_penalty_sec = route_payload.get("rain_penalty_sec", 0)
+        point_rain_penalty_sec = access_rain_penalty["penalty_sec"] + egress_rain_penalty["penalty_sec"]
+        rain_penalty_sec = internal_rain_penalty_sec + point_rain_penalty_sec
+        metro_total_time_sec = route_payload["total_time_sec"] + access_walk_time_sec + egress_walk_time_sec + point_rain_penalty_sec
+        metro_point_walk_time_sec = access_walk_time_sec + egress_walk_time_sec
+        metro_access_walk_is_excessive = metro_point_walk_time_sec > METRO_MAX_POINT_WALK_SEC
+        if not request.via_station_ids and (
+            metro_access_walk_is_excessive
+            or _walk_only_can_affect_metro_decision(
+                start_lon=request.start_lon,
+                start_lat=request.start_lat,
+                end_lon=request.end_lon,
+                end_lat=request.end_lat,
+                walking_m_per_sec=request.walking_m_per_sec,
+                metro_total_time_sec=metro_total_time_sec,
+                rain_zones=rain_zones,
+            )
+        ):
+            walk_only_option = get_walk_only_option()
             walk_only_time_sec = walk_only_option["total_time_sec"]
             if (
-                walk_only_time_sec <= WALK_COMPARE_TIME_SEC
-                and metro_total_time_sec > walk_only_time_sec - METRO_MIN_SHORT_WALK_SAVING_SEC
+                walk_only_option["has_road_path"] and
+                metro_access_walk_is_excessive and
+                metro_total_time_sec >= walk_only_time_sec
+            ):
+                return _build_walk_only_response(
+                    gis_payload=gis_payload,
+                    request=request,
+                    walk_option=walk_only_option,
+                    warnings=["metro_access_walk_too_long"],
+                    selection_reason="metro_access_walk_too_long",
+                    point_snaps=point_snaps,
+                )
+            if (
+                walk_only_option["has_road_path"] and
+                metro_total_time_sec > walk_only_time_sec - METRO_MIN_WALK_SAVING_SEC
             ):
                 return _build_walk_only_response(
                     gis_payload=gis_payload,
@@ -1442,19 +1689,9 @@ async def get_gis_route_for_points(request: GisPointRouteRequest):
                     walk_option=walk_only_option,
                     warnings=["metro_not_enough_time_saving"],
                     selection_reason="metro_not_enough_time_saving",
+                    point_snaps=point_snaps,
                 )
-            if (
-                walk_only_time_sec > WALK_COMPARE_TIME_SEC
-                and metro_total_time_sec > walk_only_time_sec + METRO_ALLOWED_SLOWER_SEC
-            ):
-                return _build_walk_only_response(
-                    gis_payload=gis_payload,
-                    request=request,
-                    walk_option=walk_only_option,
-                    warnings=["metro_detour_too_slow"],
-                    selection_reason="metro_detour_too_slow",
-                )
-
+        diagnostic_walk_only_option = walk_only_option or estimated_walk_only_option
         station_lookup = context.station_lookup or _station_lookup_payload()
         route_payload = _enrich_route_payload(route_payload, context, network)
         
@@ -1490,6 +1727,7 @@ async def get_gis_route_for_points(request: GisPointRouteRequest):
             "journey_mode": "subway",
             "start_point": {"lon": request.start_lon, "lat": request.start_lat},
             "end_point": {"lon": request.end_lon, "lat": request.end_lat},
+            **_point_snap_response_fields(point_snaps),
             "selected_start_station": {
                 **station_lookup[selected_start_station_id],
                 "lon": station_coords_by_id[selected_start_station_id][0],
@@ -1538,19 +1776,27 @@ async def get_gis_route_for_points(request: GisPointRouteRequest):
             "egress_walk_time_sec": egress_walk_time_sec,
             "access_rain_penalty_sec": access_rain_penalty["penalty_sec"],
             "egress_rain_penalty_sec": egress_rain_penalty["penalty_sec"],
+            "internal_rain_penalty_sec": internal_rain_penalty_sec,
             "rain_penalty_sec": rain_penalty_sec,
             "rain_walk_details": {
                 "access": access_rain_penalty,
                 "egress": egress_rain_penalty,
+                "route": {
+                    "penalty_sec": internal_rain_penalty_sec,
+                },
             },
             "ride_path_features": route_geometry_features,
             "total_journey_time_sec": metro_total_time_sec,
             "base_journey_time_sec": (
-                route_payload["total_time_sec"] + access_walk_time_sec + egress_walk_time_sec
+                route_payload["total_time_sec"] - internal_rain_penalty_sec
+                + access_walk_time_sec + egress_walk_time_sec
             ),
             "route_diagnostics": {
                 "subway_time_sec": route_payload["total_time_sec"],
-                "walking_time_sec": access_walk_time_sec + egress_walk_time_sec,
+                "walking_time_sec": (
+                    route_payload.get("walking_time_sec", 0)
+                    + access_walk_time_sec + egress_walk_time_sec
+                ),
                 "rain_penalty_sec": rain_penalty_sec,
                 "transfer_count": route_payload.get("transfer_count", 0),
                 "scenario_mode": "soft_penalty" if rain_zones else "normal",
@@ -1559,11 +1805,12 @@ async def get_gis_route_for_points(request: GisPointRouteRequest):
                 "selection_weighted_cost_sec": normal_cost if selected_candidate_set == "normal" else strategic_cost,
                 "normal_selection_cost_sec": None if normal_cost == float("inf") else normal_cost,
                 "strategic_selection_cost_sec": None if strategic_cost == float("inf") else strategic_cost,
-                "walk_only_distance_m": round(walk_only_option["distance_m"], 1),
-                "walk_only_time_sec": walk_only_option["total_time_sec"],
+                "walk_only_distance_m": round(diagnostic_walk_only_option["distance_m"], 1),
+                "walk_only_time_sec": diagnostic_walk_only_option["total_time_sec"],
+                "walk_only_distance_source": diagnostic_walk_only_option["distance_source"],
                 "walk_compare_time_sec": WALK_COMPARE_TIME_SEC,
-                "metro_min_short_walk_saving_sec": METRO_MIN_SHORT_WALK_SAVING_SEC,
-                "metro_allowed_slower_sec": METRO_ALLOWED_SLOWER_SEC,
+                "metro_min_walk_saving_sec": METRO_MIN_WALK_SAVING_SEC,
+                "metro_max_point_walk_sec": METRO_MAX_POINT_WALK_SEC,
                 "candidate_pairs": _summarize_candidate_diagnostics(
                     candidate_diagnostics,
                     selected_start_station_id,

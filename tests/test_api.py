@@ -15,6 +15,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+from app.api import routes as api_routes
 from app.api.routes import BuilderLinePayload
 from app.api.routes import BuilderNetworkSaveRequest
 from app.api.routes import BuilderStationLinePayload
@@ -52,6 +53,110 @@ from app.main import index as index_page
 
 
 class ApiTests(unittest.IsolatedAsyncioTestCase):
+    async def test_gis_snap_point_returns_nearest_walk_network_node(self):
+        walk_graph = build_walk_graph(
+            {
+                "type": "FeatureCollection",
+                "features": [
+                    {
+                        "type": "Feature",
+                        "geometry": {
+                            "type": "LineString",
+                            "coordinates": [[1.0, 0.0], [2.0, 0.0]],
+                        },
+                        "properties": {},
+                    }
+                ],
+            }
+        )
+
+        with (
+            patch("app.api.routes.get_subway_network", return_value=SimpleNamespace()),
+            patch(
+                "app.api.routes.get_gis_route_context",
+                return_value=SimpleNamespace(walk_graph=walk_graph),
+            ),
+        ):
+            body = await api_routes.snap_gis_point(
+                api_routes.GisPointSnapRequest(lon=0.0, lat=0.0)
+            )
+
+        self.assertEqual(body["requested_point"], {"lon": 0.0, "lat": 0.0})
+        self.assertEqual(body["snapped_point"], {"lon": 1.0, "lat": 0.0})
+        self.assertTrue(body["was_snapped"])
+        self.assertGreater(body["distance_m"], 0)
+
+    def test_gis_snap_point_skips_walk_network_nodes_inside_water_mask(self):
+        walk_graph = build_walk_graph(
+            {
+                "type": "FeatureCollection",
+                "features": [
+                    {
+                        "type": "Feature",
+                        "geometry": {
+                            "type": "LineString",
+                            "coordinates": [[1.0, 0.0], [2.0, 0.0]],
+                        },
+                        "properties": {},
+                    }
+                ],
+            }
+        )
+        water_mask = SimpleNamespace(
+            covers=lambda lon, lat: lon <= 1.0 and lat == 0.0,
+        )
+
+        body = api_routes._snap_point_to_walk_network(
+            0.0,
+            0.0,
+            walk_graph,
+            water_mask=water_mask,
+        )
+
+        self.assertEqual(body["snapped_point"], {"lon": 2.0, "lat": 0.0})
+        self.assertTrue(body["requested_point_is_water"])
+
+    def test_gis_route_context_cache_key_includes_admin_effects(self):
+        api_routes._GIS_ROUTE_CONTEXT_CACHE.clear()
+        original_signature = api_routes._build_gis_route_context_signature
+        original_build = api_routes._build_gis_route_context
+        had_module_id = "id" in api_routes.__dict__
+        original_module_id = api_routes.__dict__.get("id")
+        build_calls = []
+
+        def build_context(network, signature):
+            build_calls.append((network.marker, signature))
+            return SimpleNamespace(payload={"marker": network.marker})
+
+        try:
+            api_routes._build_gis_route_context_signature = lambda: "file-signature"
+            api_routes._build_gis_route_context = build_context
+            api_routes.id = lambda _network: 12345
+
+            first_network = SimpleNamespace(
+                marker="first",
+                metadata={"admin_effects": {"closed_station_ids": ["A"]}},
+            )
+            second_network = SimpleNamespace(
+                marker="second",
+                metadata={"admin_effects": {"closed_station_ids": ["B"]}},
+            )
+
+            first_context = api_routes.get_gis_route_context(first_network)
+            second_context = api_routes.get_gis_route_context(second_network)
+
+            self.assertEqual(first_context.payload["marker"], "first")
+            self.assertEqual(second_context.payload["marker"], "second")
+            self.assertEqual(len(build_calls), 2)
+        finally:
+            api_routes._GIS_ROUTE_CONTEXT_CACHE.clear()
+            api_routes._build_gis_route_context_signature = original_signature
+            api_routes._build_gis_route_context = original_build
+            if had_module_id:
+                api_routes.id = original_module_id
+            else:
+                api_routes.__dict__.pop("id", None)
+
     async def test_health_endpoint(self):
         body = await health_check()
 
@@ -208,9 +313,9 @@ class ApiTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("metro_not_enough_time_saving", body["warnings"])
         self.assertLessEqual(body["access_walk_distance_m"], 600)
         self.assertEqual(body["route_diagnostics"]["mode_decision"], "metro_not_enough_time_saving")
-        self.assertEqual(body["route_diagnostics"]["metro_min_short_walk_saving_sec"], 7 * 60)
+        self.assertEqual(body["route_diagnostics"]["metro_min_walk_saving_sec"], 7 * 60)
 
-    async def test_gis_route_points_prefers_metro_over_uncomfortable_walk(self):
+    async def test_gis_route_points_requires_meaningful_metro_saving_over_uncomfortable_walk(self):
         network = SubwayNetwork(
             stations={
                 "station-a": Station(id="station-a", name="Station A", x=121.5, y=25.042),
@@ -253,23 +358,122 @@ class ApiTests(unittest.IsolatedAsyncioTestCase):
                 "station-b": {"id": "station-b", "name": "Station B", "line_ids": ["blue"]},
             },
         )
+        for metro_time_sec, expected_mode in (
+            (35 * 60, "walk_fallback"),
+            (20 * 60, "subway"),
+        ):
+            with self.subTest(metro_time_sec=metro_time_sec):
+                dummy_route = RouteResult(
+                    total_time_sec=metro_time_sec,
+                    walking_time_sec=0,
+                    transfer_count=0,
+                    stop_count=1,
+                    station_ids=["station-a", "station-b"],
+                    line_sequence=["blue"],
+                    steps=[
+                        RouteStep(
+                            kind="ride",
+                            station_id="station-a",
+                            line_id="blue",
+                            next_station_id="station-b",
+                            duration_sec=metro_time_sec,
+                        )
+                    ],
+                )
+
+                class DummyEngine:
+                    def find_route_through_stations(self, station_ids):
+                        return dummy_route
+
+                with (
+                    patch("app.api.routes.get_subway_network", return_value=network),
+                    patch("app.api.routes.get_gis_route_context", return_value=context),
+                    patch("app.api.routes.get_route_engine", return_value=DummyEngine()),
+                ):
+                    body = await get_gis_route_for_points(
+                        GisPointRouteRequest(
+                            start_lon=121.5,
+                            start_lat=25.042,
+                            end_lon=121.5193,
+                            end_lat=25.042,
+                            walking_m_per_sec=1.1,
+                        )
+                    )
+
+                self.assertEqual(body["journey_mode"], expected_mode)
+                self.assertGreater(body["route_diagnostics"]["walk_only_time_sec"], 20 * 60)
+                if expected_mode == "walk_fallback":
+                    self.assertEqual(body["route_selection_reason"], "metro_not_enough_time_saving")
+                else:
+                    self.assertEqual(body["route_diagnostics"]["mode_decision"], "metro_selected")
+                    self.assertEqual(body["total_journey_time_sec"], metro_time_sec)
+
+    async def test_gis_route_points_prefers_direct_walk_when_station_access_is_too_long(self):
+        network = SubwayNetwork(
+            stations={
+                "xinbeitou": Station(id="xinbeitou", name="Xinbeitou", x=121.53, y=25.042),
+                "station-b": Station(id="station-b", name="Station B", x=121.53, y=25.042),
+            },
+            lines={"green": Line(id="green", name="Green Line", color="#00aa55")},
+            station_lines=[],
+            segments=[],
+            transfers=[],
+            station_to_lines={"xinbeitou": {"green"}, "station-b": {"green"}},
+            metadata={"admin_effects": {"scenarios": {"rain_zones": []}}},
+        )
+        context = GisRouteContext(
+            payload={
+                "source": "qgis_geojson",
+                "stations": {"type": "FeatureCollection", "features": []},
+                "station_access_points": None,
+                "lines": {"type": "FeatureCollection", "features": []},
+            },
+            station_coords_by_id={"xinbeitou": (121.53, 25.042), "station-b": (121.53, 25.042)},
+            walk_graph=build_walk_graph(None),
+            walk_targets_by_node={},
+            station_lookup={
+                "xinbeitou": {"id": "xinbeitou", "name": "Xinbeitou", "line_ids": ["green"]},
+                "station-b": {"id": "station-b", "name": "Station B", "line_ids": ["green"]},
+            },
+        )
+        start_candidate = SimpleNamespace(
+            station_id="xinbeitou",
+            distance_m=2679.0,
+            path_coordinates=[],
+            access_point_coordinate=(121.53, 25.042),
+            access_point_name=None,
+        )
+        end_candidate = SimpleNamespace(
+            station_id="station-b",
+            distance_m=0.0,
+            path_coordinates=[],
+            access_point_coordinate=(121.53, 25.042),
+            access_point_name=None,
+        )
         dummy_route = RouteResult(
-            total_time_sec=35 * 60,
+            total_time_sec=12 * 60,
             walking_time_sec=0,
             transfer_count=0,
             stop_count=1,
-            station_ids=["station-a", "station-b"],
-            line_sequence=["blue"],
-            steps=[
-                RouteStep(
-                    kind="ride",
-                    station_id="station-a",
-                    line_id="blue",
-                    next_station_id="station-b",
-                    duration_sec=35 * 60,
-                )
-            ],
+            station_ids=["xinbeitou", "station-b"],
+            line_sequence=["green"],
+            steps=[],
         )
+        walk_only_option = {
+            "path_coordinates": [(121.5, 25.042), (121.53, 25.042)],
+            "distance_m": 3398.0,
+            "distance_source": "walk_graph",
+            "walk_time_sec": 51 * 60 + 29,
+            "rain_penalty": {
+                "penalty_sec": 0,
+                "affected_distance_m": 0.0,
+                "severity": None,
+                "walking_multiplier": 1.0,
+                "station_access_penalty_sec": 0,
+            },
+            "total_time_sec": 51 * 60 + 29,
+            "has_road_path": True,
+        }
 
         class DummyEngine:
             def find_route_through_stations(self, station_ids):
@@ -279,22 +483,34 @@ class ApiTests(unittest.IsolatedAsyncioTestCase):
             patch("app.api.routes.get_subway_network", return_value=network),
             patch("app.api.routes.get_gis_route_context", return_value=context),
             patch("app.api.routes.get_route_engine", return_value=DummyEngine()),
+            patch(
+                "app.api.routes.find_candidate_stations_by_walk",
+                side_effect=[[start_candidate], [end_candidate]],
+            ),
+            patch(
+                "app.api.routes._find_first_candidate_route",
+                return_value=(start_candidate, end_candidate, dummy_route, 1),
+            ),
+            patch(
+                "app.api.routes._find_best_candidate_route",
+                return_value=(start_candidate, end_candidate, dummy_route, 1),
+            ),
+            patch("app.api.routes._build_walk_only_option", return_value=walk_only_option),
         ):
             body = await get_gis_route_for_points(
                 GisPointRouteRequest(
                     start_lon=121.5,
                     start_lat=25.042,
-                    end_lon=121.5193,
+                    end_lon=121.53,
                     end_lat=25.042,
                     walking_m_per_sec=1.1,
                 )
             )
 
-        self.assertEqual(body["journey_mode"], "subway")
-        self.assertEqual(body["route_diagnostics"]["mode_decision"], "metro_selected")
-        self.assertGreater(body["route_diagnostics"]["walk_only_time_sec"], 20 * 60)
-        self.assertEqual(body["route_diagnostics"]["metro_allowed_slower_sec"], 25 * 60)
-        self.assertEqual(body["total_journey_time_sec"], 35 * 60)
+        self.assertEqual(body["journey_mode"], "walk_fallback")
+        self.assertEqual(body["route_selection_reason"], "metro_access_walk_too_long")
+        self.assertIn("metro_access_walk_too_long", body["warnings"])
+        self.assertEqual(body["total_journey_time_sec"], 51 * 60 + 29)
 
     def test_route_candidate_score_prefers_less_walking_when_times_are_close(self):
         long_walk_short_ride = RouteResult(
@@ -593,7 +809,7 @@ class ApiTests(unittest.IsolatedAsyncioTestCase):
             "#ff0000",
         )
 
-    async def test_gis_route_points_walk_path_uses_exact_clicked_point_and_access_point(self):
+    async def test_gis_route_points_snaps_clicked_point_to_walk_network(self):
         gis_payload = {
             "source": "qgis_geojson",
             "bounds": [0.0, 0.0, 3.0, 1.0],
@@ -681,9 +897,11 @@ class ApiTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(body["selected_start_access_point"]["name"], "B Exit")
         self.assertEqual(body["selected_start_access_point"]["lon"], 2.1)
         self.assertEqual(body["selected_start_access_point"]["lat"], 0.0)
+        self.assertEqual(body["start_point"], {"lon": 1.0, "lat": 0.0})
+        self.assertEqual(body["requested_start_point"], {"lon": 0.0, "lat": 0.0})
         self.assertEqual(
             body["access_walk_path"]["coordinates"],
-            [[0.0, 0.0], [1.0, 0.0], [2.0, 0.0], [2.1, 0.0]],
+            [[1.0, 0.0], [2.0, 0.0], [2.1, 0.0]],
         )
 
     async def test_legacy_api_endpoints_are_gone(self):

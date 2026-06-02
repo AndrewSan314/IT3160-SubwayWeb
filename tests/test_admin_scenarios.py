@@ -16,6 +16,7 @@ from app.domain.models import SubwayNetwork
 from app.services.geo_utils import haversine_distance_m
 from app.services.admin_scenarios import apply_admin_scenarios_to_network
 from app.services.admin_scenarios import build_admin_scenario_effects
+from app.services.admin_scenarios import normalize_admin_scenarios
 from app.services.walk_network import build_walk_graph
 from app.services.route_engine import RouteEngine
 
@@ -115,6 +116,27 @@ def _sample_gis_payload():
 
 
 class AdminScenarioTests(unittest.TestCase):
+    def test_normalize_admin_scenarios_accepts_api_response_wrapper(self):
+        block_segment = {
+            "id": "block-1",
+            "kind": "line",
+            "from": {"lon": 121.5, "lat": 25.0},
+            "to": {"lon": 121.51, "lat": 25.0},
+        }
+
+        scenarios = normalize_admin_scenarios(
+            {
+                "status": "ok",
+                "scenarios": {
+                    "source": "client",
+                    "block_segments": [block_segment],
+                },
+            }
+        )
+
+        self.assertEqual(scenarios["source"], "client")
+        self.assertEqual(scenarios["block_segments"], [block_segment])
+
     def test_build_admin_scenario_effects_collects_rain_impacts_and_blocked_segments(self):
         network = _sample_network_with_topology()
         gis_payload = _sample_gis_payload()
@@ -147,6 +169,114 @@ class AdminScenarioTests(unittest.TestCase):
         self.assertEqual(result.station_ids, ["A", "D", "C"])
         self.assertEqual(result.line_sequence, ["red"])
 
+    def test_blocked_rail_segment_does_not_create_walk_bypass(self):
+        network = _sample_network_with_topology()
+        network.stations["A"] = Station(id="A", name="A", x=121.500, y=25.000)
+        network.stations["B"] = Station(id="B", name="B", x=121.505, y=25.000)
+
+        filtered = apply_admin_scenarios_to_network(
+            network,
+            {
+                "closed_station_ids": [],
+                "closed_segment_keys": ["blue:A:B"],
+            },
+        )
+
+        self.assertEqual(filtered.metadata["admin_effects"]["walk_bypass_pairs"], [])
+        self.assertFalse(
+            any(
+                {transfer.from_station_id, transfer.to_station_id} == {"A", "B"}
+                for transfer in filtered.walk_transfers
+            )
+        )
+
+    def test_blocked_rail_segment_creates_road_graph_walk_bypass(self):
+        network = _sample_network_with_topology()
+        network.lines = {"blue": network.lines["blue"]}
+        network.station_lines = [
+            station_line
+            for station_line in network.station_lines
+            if station_line.line_id == "blue"
+        ]
+        network.segments = [
+            segment
+            for segment in network.segments
+            if segment.line_id == "blue"
+        ]
+        network.station_to_lines = {
+            "A": {"blue"},
+            "B": {"blue"},
+            "C": {"blue"},
+        }
+        network.stations["A"] = Station(id="A", name="A", x=121.500, y=25.000)
+        network.stations["B"] = Station(id="B", name="B", x=121.505, y=25.000)
+        network.stations["C"] = Station(id="C", name="C", x=121.506, y=25.000)
+        walk_graph = build_walk_graph(
+            _feature_collection(
+                [
+                    {
+                        "type": "Feature",
+                        "geometry": {
+                            "type": "LineString",
+                            "coordinates": [
+                                [121.500, 25.000],
+                                [121.5025, 25.001],
+                                [121.505, 25.000],
+                            ],
+                        },
+                        "properties": {},
+                    }
+                ]
+            )
+        )
+
+        filtered = apply_admin_scenarios_to_network(
+            network,
+            {
+                "closed_station_ids": [],
+                "closed_segment_keys": ["blue:A:B"],
+            },
+            walk_graph=walk_graph,
+            station_coords_by_id={
+                "A": (121.500, 25.000),
+                "B": (121.505, 25.000),
+                "C": (121.506, 25.000),
+            },
+        )
+
+        result = RouteEngine(filtered).find_route("A", "C")
+
+        self.assertIn(["A", "B"], filtered.metadata["admin_effects"]["walk_bypass_pairs"])
+        self.assertIn(["B", "A"], filtered.metadata["admin_effects"]["walk_bypass_pairs"])
+        self.assertEqual(
+            [(step.kind, step.station_id, step.next_station_id) for step in result.steps],
+            [("walk", "A", "B"), ("ride", "B", "C")],
+        )
+
+    def test_apply_admin_scenarios_to_network_preserves_rain_metadata(self):
+        network = _sample_network_with_topology()
+        rain_zones = [
+            {
+                "id": "rain-1",
+                "center": {"lon": 121.5, "lat": 25.0},
+                "radius_m": 500,
+                "severity": "heavy",
+            }
+        ]
+
+        filtered = apply_admin_scenarios_to_network(
+            network,
+            {
+                "closed_station_ids": [],
+                "closed_segment_keys": [],
+                "rain_station_ids": ["A"],
+                "scenarios": {"rain_zones": rain_zones},
+            },
+        )
+
+        self.assertEqual(filtered.metadata["admin_effects"]["rain_station_ids"], ["A"])
+        self.assertEqual(filtered.metadata["admin_effects"]["rain_zones"], rain_zones)
+
     def test_overlapping_rain_zones_use_strongest_zone_without_stacking(self):
         candidate = type(
             "CandidateLike",
@@ -174,6 +304,20 @@ class AdminScenarioApiTests(unittest.IsolatedAsyncioTestCase):
     async def test_gis_route_uses_active_admin_scenarios(self):
         network = _sample_network_with_topology()
         gis_payload = _sample_gis_payload()
+        gis_payload["stations"] = _feature_collection(
+            [
+                _point_feature("A", 121.510, 25.000, ["blue", "red"]),
+                _point_feature("B", 121.500, 25.000, ["blue"]),
+                _point_feature("C", 121.540, 25.000, ["blue", "red"]),
+                _point_feature("D", 121.525, 25.005, ["red"]),
+            ]
+        )
+        gis_payload["lines"] = _feature_collection(
+            [
+                _line_feature("blue", [[121.510, 25.000], [121.500, 25.000], [121.540, 25.000]]),
+                _line_feature("red", [[121.510, 25.000], [121.525, 25.005], [121.540, 25.000]]),
+            ]
+        )
         scenarios = {
             "rain_zones": [],
             "block_segments": [],
@@ -188,10 +332,10 @@ class AdminScenarioApiTests(unittest.IsolatedAsyncioTestCase):
         ):
             body = await get_gis_route_for_points(
                 GisPointRouteRequest(
-                    start_lon=1.0,
-                    start_lat=0.0,
-                    end_lon=2.0,
-                    end_lat=0.0,
+                    start_lon=121.500,
+                    start_lat=25.000,
+                    end_lon=121.540,
+                    end_lat=25.000,
                     walking_m_per_sec=1.1,
                 )
             )

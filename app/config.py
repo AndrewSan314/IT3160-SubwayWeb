@@ -49,8 +49,8 @@ class Settings:
     diagram_raster_height: int = 4096
     diagram_is_vector: bool = True
     diagram_max_zoom: int = 14
-    default_transfer_sec: int = int(os.getenv("SUBWAY_DEFAULT_TRANSFER_SEC", "30"))
-    line_switch_penalty: float = float(os.getenv("SUBWAY_LINE_SWITCH_PENALTY", "180.0"))
+    default_transfer_sec: int = int(os.getenv("SUBWAY_DEFAULT_TRANSFER_SEC", "90"))
+    line_switch_penalty: float = float(os.getenv("SUBWAY_LINE_SWITCH_PENALTY", "15.0"))
     auto_walk_transfer_radius: float = float(
         os.getenv("SUBWAY_AUTO_WALK_TRANSFER_RADIUS", "150.0")
     )

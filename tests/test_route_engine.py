@@ -7,6 +7,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from app.services.route_engine import RouteEngine
+from app.services.runtime import get_network
 from app.services.subway_loader import NetworkBuildOptions
 from app.services.subway_loader import load_network_from_dict
 
@@ -78,6 +79,16 @@ def make_engine() -> RouteEngine:
 
 
 class RouteEngineTests(unittest.TestCase):
+    def test_orange_line_branches_connect_through_daqiaotou(self):
+        engine = RouteEngine(get_network())
+
+        result = engine.find_route("sanchong-elementary-school", "taipei-bridge")
+
+        self.assertEqual(
+            result.station_ids,
+            ["sanchong-elementary-school", "daqiaotou", "taipei-bridge"],
+        )
+
     def test_same_line_route_has_no_transfer(self):
         engine = make_engine()
 
@@ -105,6 +116,16 @@ class RouteEngineTests(unittest.TestCase):
         self.assertEqual(result.total_time_sec, 0)
         self.assertEqual(result.transfer_count, 0)
         self.assertEqual(result.station_ids, ["X1"])
+
+    def test_candidate_route_requires_real_trip_instead_of_looping_back_to_start(self):
+        engine = make_engine()
+
+        with self.assertRaisesRegex(ValueError, "No route found"):
+            engine.find_route_between_candidates(
+                start_options=[("start", "R1", (0, 0, 0, 0))],
+                end_options=[("end", "R1", (0, 0, 0, 0))],
+                require_ride=True,
+            )
 
     def test_point_route_snaps_start_and_end_to_nearest_station(self):
         engine = make_engine()
@@ -149,6 +170,16 @@ class RouteEngineTests(unittest.TestCase):
         self.assertEqual(result.station_ids[-1], "G5")
         self.assertIn("R5", result.station_ids)
         self.assertGreater(result.station_ids.index("R5"), 0)
+
+    def test_route_through_via_charges_transfer_at_via_station(self):
+        engine = make_engine()
+
+        result = engine.find_route_through_stations(["R1", "X1", "B5"])
+
+        self.assertEqual(result.station_ids, ["R1", "R2", "X1", "B4", "B5"])
+        self.assertEqual(result.line_sequence, ["red", "blue"])
+        self.assertEqual(result.transfer_count, 1)
+        self.assertEqual(result.total_time_sec, 560)
 
     def test_point_route_respects_via_station_ids(self):
         engine = make_engine()
@@ -204,6 +235,94 @@ class RouteEngineTests(unittest.TestCase):
         self.assertEqual([step.kind for step in result.steps], ["walk", "ride"])
         self.assertEqual(result.walking_time_sec, 36)
         self.assertEqual(result.total_time_sec, 126)
+
+    def test_rain_penalty_applies_to_generated_walk_transfer(self):
+        raw = {
+            "stations": [
+                {"id": "A", "name": "Alpha", "x": 121.5000, "y": 25.0000},
+                {"id": "B", "name": "Beta", "x": 121.5002, "y": 25.0000},
+            ],
+            "lines": [
+                {"id": "red", "name": "Red Line", "color": "#d94f4f"},
+                {"id": "blue", "name": "Blue Line", "color": "#3d6df2"},
+            ],
+            "station_lines": [
+                {"station_id": "A", "line_id": "red", "seq": 1},
+                {"station_id": "B", "line_id": "blue", "seq": 1},
+            ],
+            "segments": [],
+            "transfers": [],
+        }
+        network = load_network_from_dict(
+            raw,
+            options=NetworkBuildOptions(auto_walk_transfer_radius=100.0),
+        )
+        engine = RouteEngine(network)
+        rain_zones = [
+            {
+                "id": "rain-1",
+                "center": {"lon": 121.5001, "lat": 25.0},
+                "radius_m": 100,
+                "severity": "heavy",
+            }
+        ]
+
+        dry_result = engine.find_route("A", "B")
+        rainy_result = engine.find_route("A", "B", rain_zones=rain_zones)
+
+        self.assertGreater(rainy_result.total_time_sec, dry_result.total_time_sec)
+        self.assertGreater(rainy_result.walking_time_sec, dry_result.walking_time_sec)
+        self.assertGreater(rainy_result.rain_penalty_sec, 0)
+        self.assertEqual(rainy_result.steps[0].rain_penalty_sec, rainy_result.rain_penalty_sec)
+        self.assertEqual(rainy_result.to_dict()["rain_penalty_sec"], rainy_result.rain_penalty_sec)
+
+    def test_rain_penalty_does_not_apply_to_same_station_transfer(self):
+        raw = {
+            "stations": [
+                {"id": "A", "name": "Alpha", "x": 121.5000, "y": 25.0000},
+                {"id": "X", "name": "Exchange", "x": 121.5100, "y": 25.0000},
+                {"id": "B", "name": "Beta", "x": 121.5200, "y": 25.0000},
+            ],
+            "lines": [
+                {"id": "red", "name": "Red Line", "color": "#d94f4f"},
+                {"id": "blue", "name": "Blue Line", "color": "#3d6df2"},
+            ],
+            "station_lines": [
+                {"station_id": "A", "line_id": "red", "seq": 1},
+                {"station_id": "X", "line_id": "red", "seq": 2},
+                {"station_id": "X", "line_id": "blue", "seq": 1},
+                {"station_id": "B", "line_id": "blue", "seq": 2},
+            ],
+            "segments": [
+                {"line_id": "red", "from_station_id": "A", "to_station_id": "X", "travel_sec": 90},
+                {"line_id": "blue", "from_station_id": "X", "to_station_id": "B", "travel_sec": 90},
+            ],
+            "transfers": [
+                {"station_id": "X", "from_line_id": "red", "to_line_id": "blue", "transfer_sec": 90},
+            ],
+        }
+        network = load_network_from_dict(
+            raw,
+            options=NetworkBuildOptions(auto_walk_transfer_radius=100.0),
+        )
+        engine = RouteEngine(network)
+        rain_zones = [
+            {
+                "id": "rain-1",
+                "center": {"lon": 121.51, "lat": 25.0},
+                "radius_m": 100,
+                "severity": "heavy",
+            }
+        ]
+
+        dry_result = engine.find_route("A", "B")
+        rainy_result = engine.find_route("A", "B", rain_zones=rain_zones)
+
+        self.assertEqual(rainy_result.total_time_sec, dry_result.total_time_sec)
+        self.assertEqual(rainy_result.rain_penalty_sec, 0)
+
+    def test_grid_cell_uses_floor_for_negative_coordinates(self):
+        self.assertEqual(RouteEngine._grid_cell((-0.1, -1.1), 1.0), (-1, -2))
 
 
 if __name__ == "__main__":

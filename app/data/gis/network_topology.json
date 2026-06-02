@@ -3051,12 +3051,6 @@
     },
     {
       "line_id": "c5",
-      "from_station_id": "sanchong-elementary-school",
-      "to_station_id": "taipei-bridge",
-      "travel_sec": 85
-    },
-    {
-      "line_id": "c5",
       "from_station_id": "sanhe-junior-high-school",
       "to_station_id": "sanchong-elementary-school",
       "travel_sec": 60

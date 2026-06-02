@@ -2,6 +2,7 @@ import os
 import pickle
 import heapq
 import math
+from collections import OrderedDict
 from dataclasses import dataclass
 from dataclasses import field
 from pathlib import Path
@@ -18,6 +19,10 @@ Coordinate = tuple[float, float]
 CellId = tuple[int, int]
 DEFAULT_GRID_TARGET_NODES_PER_CELL = 64
 MIN_GRID_CELL_SIZE_DEG = 1e-4
+WALK_PATH_SNAP_CANDIDATE_LIMIT = 8
+DISTANT_SNAP_THRESHOLD_M = 100.0
+DISTANT_SNAP_PENALTY = 5.0
+WALK_PATH_CACHE_MAXSIZE = 256
 
 
 @dataclass(frozen=True)
@@ -41,6 +46,9 @@ class WalkPathResult:
 class WalkGraph:
     adjacency: dict[Coordinate, list[tuple[Coordinate, float]]]
     snapped_node_cache: dict[Coordinate, Coordinate] = field(default_factory=dict)
+    walk_path_cache: OrderedDict[tuple[Coordinate, Coordinate, bool], tuple[Coordinate, ...]] = field(
+        default_factory=OrderedDict
+    )
     spatial_index: dict[CellId, list[Coordinate]] = field(default_factory=dict)
     edge_geometry: dict[tuple[Coordinate, Coordinate], list[Coordinate]] = field(default_factory=dict)
     grid_origin: Coordinate = (0.0, 0.0)
@@ -101,6 +109,53 @@ class WalkGraph:
                 break
 
         self.snapped_node_cache[point] = best_node
+        return best_node
+
+    def nearest_node_matching(
+        self,
+        lon: float,
+        lat: float,
+        predicate,
+    ) -> Coordinate:
+        if not self.adjacency:
+            raise ValueError("Walk graph has no nodes")
+
+        point = (float(lon), float(lat))
+        if point in self.adjacency and predicate(point):
+            return point
+
+        query_cell = self._cell_id(*point)
+        search_center_cell = self._clamp_cell_to_bounds(query_cell)
+        min_cell_x, max_cell_x, min_cell_y, max_cell_y = self.grid_bounds
+        max_ring = max(
+            abs(search_center_cell[0] - min_cell_x),
+            abs(search_center_cell[0] - max_cell_x),
+            abs(search_center_cell[1] - min_cell_y),
+            abs(search_center_cell[1] - max_cell_y),
+        )
+
+        best_node: Coordinate | None = None
+        best_distance_m = float("inf")
+        for ring in range(max_ring + 1):
+            for cell_id in self._iter_cells_for_ring(search_center_cell, ring):
+                for node_lon, node_lat in self.spatial_index.get(cell_id, []):
+                    candidate = (node_lon, node_lat)
+                    if not predicate(candidate):
+                        continue
+                    distance_m = haversine_distance_m(lat, lon, node_lat, node_lon)
+                    if distance_m < best_distance_m:
+                        best_distance_m = distance_m
+                        best_node = candidate
+
+            if best_node is None:
+                continue
+            if ring == max_ring:
+                break
+            if best_distance_m <= self._min_outside_ring_distance_m(*point, search_center_cell, ring):
+                break
+
+        if best_node is None:
+            raise ValueError("Walk graph has no matching nodes")
         return best_node
 
     def nearest_nodes(self, lon: float, lat: float, k: int = 5) -> list[tuple[Coordinate, float]]:
@@ -753,7 +808,7 @@ def _dijkstra_station_candidates_from_snaps(
     settings: Any | None = None,
 ) -> list[WalkPathResult]:
     target_limit = max(1, limit or 10)
-    collection_limit = max(target_limit * 2, target_limit + 4)
+    collection_limit = target_limit
 
     distances: dict[Coordinate, float] = {}
     previous_nodes: dict[Coordinate, Coordinate] = {}
@@ -1043,26 +1098,50 @@ def find_walk_path(
 
     start_coord = (float(start_lon), float(start_lat))
     target_coord = (float(target_lon), float(target_lat))
-    
-    start_node = walk_graph.nearest_node(*start_coord)
-    target_node = walk_graph.nearest_node(*target_coord)
 
-    if start_node == target_node:
-        return [start_coord, start_node, target_coord]
+    if walk_graph.is_simplified and not walk_graph.edge_geometry and settings:
+        walk_graph.load_geometry(settings)
 
-    distances: dict[Coordinate, float] = {start_node: 0.0}
+    cache_key = (start_coord, target_coord, bool(walk_graph.edge_geometry))
+    cached_path = _get_cached_walk_path(walk_graph, cache_key)
+    if cached_path is not None:
+        return cached_path
+
+    start_candidates = _walk_path_snap_candidates(walk_graph, start_coord)
+    target_candidates = _walk_path_snap_candidates(walk_graph, target_coord)
+    target_costs = {
+        node: cost_m
+        for node, cost_m in target_candidates
+    }
+
+    distances: dict[Coordinate, float] = {}
     previous_nodes: dict[Coordinate, Coordinate] = {}
-    queue: list[tuple[float, Coordinate]] = [(0.0, start_node)]
+    source_by_node: dict[Coordinate, Coordinate] = {}
+    queue: list[tuple[float, Coordinate]] = []
+    for start_node, cost_m in start_candidates:
+        if cost_m >= distances.get(start_node, float("inf")):
+            continue
+        distances[start_node] = cost_m
+        source_by_node[start_node] = start_node
+        heapq.heappush(queue, (cost_m, start_node))
 
-    found = False
+    best_total_distance_m = float("inf")
+    best_source_node: Coordinate | None = None
+    best_target_node: Coordinate | None = None
     while queue:
         current_distance, current_node = heapq.heappop(queue)
-        if current_node == target_node:
-            found = True
-            break
-            
         if current_distance > distances.get(current_node, float("inf")):
             continue
+        if current_distance > best_total_distance_m:
+            break
+
+        target_cost_m = target_costs.get(current_node)
+        if target_cost_m is not None:
+            candidate_total_distance_m = current_distance + target_cost_m
+            if candidate_total_distance_m < best_total_distance_m:
+                best_total_distance_m = candidate_total_distance_m
+                best_source_node = source_by_node[current_node]
+                best_target_node = current_node
 
         for neighbor_node, edge_distance_m in walk_graph.adjacency.get(current_node, []):
             candidate_distance = current_distance + edge_distance_m
@@ -1070,18 +1149,76 @@ def find_walk_path(
                 continue
             distances[neighbor_node] = candidate_distance
             previous_nodes[neighbor_node] = current_node
+            source_by_node[neighbor_node] = source_by_node[current_node]
             heapq.heappush(queue, (candidate_distance, neighbor_node))
 
-    if not found:
+    if best_source_node is None or best_target_node is None:
         # Distance-based guard for straight-line fallback
         dist = haversine_distance_m(start_lat, start_lon, target_lat, target_lon)
         if dist < 300: # Stay within 300m for "unmapped" walk paths
-            return [start_coord, target_coord]
-        return []
+            return _cache_walk_path(walk_graph, cache_key, [start_coord, target_coord])
+        return _cache_walk_path(walk_graph, cache_key, [])
 
-    # Load geometry if simplified
-    if walk_graph.is_simplified and not walk_graph.edge_geometry and settings:
-        walk_graph.load_geometry(settings)
+    graph_path = _reconstruct_path(
+        previous_nodes,
+        best_source_node,
+        best_target_node,
+        graph=walk_graph,
+    )
+    return _cache_walk_path(
+        walk_graph,
+        cache_key,
+        _build_path_coordinates(start_coord, graph_path, target_coord),
+    )
 
-    graph_path = _reconstruct_path(previous_nodes, start_node, target_node, graph=walk_graph)
-    return _build_path_coordinates(start_coord, graph_path, target_coord)
+
+def _get_cached_walk_path(
+    walk_graph: WalkGraph,
+    cache_key: tuple[Coordinate, Coordinate, bool],
+) -> list[Coordinate] | None:
+    cache = getattr(walk_graph, "walk_path_cache", None)
+    if cache is None:
+        walk_graph.walk_path_cache = OrderedDict()
+        return None
+    cached_path = cache.get(cache_key)
+    if cached_path is None:
+        return None
+    cache.move_to_end(cache_key)
+    return list(cached_path)
+
+
+def _cache_walk_path(
+    walk_graph: WalkGraph,
+    cache_key: tuple[Coordinate, Coordinate, bool],
+    path_coordinates: list[Coordinate],
+) -> list[Coordinate]:
+    cache = getattr(walk_graph, "walk_path_cache", None)
+    if cache is None:
+        cache = OrderedDict()
+        walk_graph.walk_path_cache = cache
+    cache[cache_key] = tuple(path_coordinates)
+    cache.move_to_end(cache_key)
+    while len(cache) > WALK_PATH_CACHE_MAXSIZE:
+        cache.popitem(last=False)
+    return list(path_coordinates)
+
+
+def _walk_path_snap_candidates(
+    walk_graph: WalkGraph,
+    coordinate: Coordinate,
+) -> list[tuple[Coordinate, float]]:
+    candidates = walk_graph.nearest_nodes(
+        *coordinate,
+        k=WALK_PATH_SNAP_CANDIDATE_LIMIT,
+    )
+    return [
+        (
+            node,
+            snap_distance_m * (
+                DISTANT_SNAP_PENALTY
+                if snap_distance_m > DISTANT_SNAP_THRESHOLD_M
+                else 1.0
+            ),
+        )
+        for node, snap_distance_m in candidates
+    ]

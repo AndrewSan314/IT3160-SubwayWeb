@@ -22,6 +22,42 @@ def _write_geojson(path: Path, payload: dict) -> None:
 
 
 class GisLoaderTests(unittest.TestCase):
+    def test_load_geojson_returns_mutation_safe_copy_of_cached_payload(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            geojson_path = Path(temp_dir) / "lines.geojson"
+            _write_geojson(
+                geojson_path,
+                {
+                    "type": "FeatureCollection",
+                    "features": [
+                        {
+                            "type": "Feature",
+                            "geometry": {
+                                "type": "LineString",
+                                "coordinates": [[121.5, 25.0], [121.51, 25.0]],
+                            },
+                            "properties": {"line_id": "blue"},
+                        }
+                    ],
+                },
+            )
+            block_segments = [
+                {
+                    "id": "block-1",
+                    "kind": "line",
+                    "from": {"lon": 121.5, "lat": 25.0},
+                    "to": {"lon": 121.51, "lat": 25.0},
+                }
+            ]
+
+            gis_loader._load_geojson_cached.cache_clear()
+            tagged_payload = gis_loader._load_geojson(geojson_path)
+            gis_loader._tag_geojson_blocks_spatially(tagged_payload, block_segments)
+            clean_payload = gis_loader._load_geojson(geojson_path)
+
+            self.assertTrue(tagged_payload["features"][0]["properties"]["is_blocked"])
+            self.assertNotIn("is_blocked", clean_payload["features"][0]["properties"])
+
     def test_build_gis_payload_can_skip_merging_missing_qgis_stations(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             geojson_dir = Path(temp_dir)

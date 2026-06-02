@@ -33,3 +33,7 @@ IT3160_Report/DoAn.pdf
 # Agent metadata
 .gemini/
 .planning/
+.claude/
+AGENTS.md
+CLAUDE.md
+check_edges.py

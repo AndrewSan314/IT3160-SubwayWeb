@@ -11,6 +11,8 @@ const state = {
   stationById: new Map(),
   lineById: new Map(),
   suppressNextMapClick: false,
+  pointSnapRequestId: 0,
+  pointSnapPending: false,
   sidebarVisible: true,
   sourceDataKeys: {
     pickedPoints: null,
@@ -47,7 +49,7 @@ const LEGACY_ADMIN_SCENARIO_STORAGE_KEY = "mrt_admin_scenarios_backup";
 const SIDEBAR_TRANSITION_MS = 280;
 const DEFAULT_VIEWPORT_BOUNDS = [121.44, 24.97, 121.62, 25.13];
 const MAX_FOCUS_LON_SPAN = 0.22;
-const MAX_FOCUS_LAT_SPAN = 0.16;
+const MAX_FOCUS_LAT_SPAN = 0.18;
 const MIN_FOCUS_LON_SPAN = 0.12;
 const MIN_FOCUS_LAT_SPAN = 0.09;
 const ROUTE_WALK_COLOR = "#14b8a6";
@@ -683,18 +685,11 @@ function handleMapLoad() {
     if (!Array.isArray(coordinates) || coordinates.length < 2) {
       return;
     }
-    if (state.pickMode === "start") {
-      state.startPoint = { lon: Number(coordinates[0]), lat: Number(coordinates[1]) };
-    } else if (state.pickMode === "end") {
-      state.endPoint = { lon: Number(coordinates[0]), lat: Number(coordinates[1]) };
-    }
-    state.routeResult = null;
     state.suppressNextMapClick = true;
-    updatePickedPointsSource();
-    updateSelectedStationsSource();
-    updateRouteSource(emptyFeatureCollection());
-    renderAll();
-    setStatus("Point updated. Click Find Route to calculate.");
+    void snapPickedPoint(state.pickMode, {
+      lon: Number(coordinates[0]),
+      lat: Number(coordinates[1]),
+    });
   });
 
   state.map.on("click", (event) => {
@@ -711,17 +706,7 @@ function handleMapLoad() {
       lon: roundTo6(event.lngLat.lng),
       lat: roundTo6(event.lngLat.lat),
     };
-    if (state.pickMode === "start") {
-      state.startPoint = point;
-    } else {
-      state.endPoint = point;
-    }
-    state.routeResult = null;
-    updatePickedPointsSource();
-    updateSelectedStationsSource();
-    updateRouteSource(emptyFeatureCollection());
-    renderAll();
-    setStatus("Point updated. Click Find Route to calculate.");
+    void snapPickedPoint(state.pickMode, point);
   });
 
   const bounds = resolveViewportBounds();
@@ -821,7 +806,77 @@ function clearViaStations() {
   setStatus("VIA stations cleared.");
 }
 
+function applyPickedPoint(role, point) {
+  if (role === "start") {
+    state.startPoint = point;
+  } else if (role === "end") {
+    state.endPoint = point;
+  }
+  state.routeResult = null;
+  updatePickedPointsSource();
+  updateSelectedStationsSource();
+  updateRouteSource(emptyFeatureCollection());
+  renderAll();
+}
+
+async function snapPickedPoint(role, point) {
+  const requestId = ++state.pointSnapRequestId;
+  state.pointSnapPending = true;
+  setStatus("Snapping point to the nearest walkable location...");
+
+  try {
+    const response = await fetch("/api/gis/snap/point", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(point),
+    });
+    const payload = await response.json();
+    if (!response.ok) {
+      throw new Error(payload.detail || "Unable to snap point.");
+    }
+    if (requestId !== state.pointSnapRequestId) {
+      return;
+    }
+
+    const snappedPoint = payload.snapped_point;
+    applyPickedPoint(role, {
+      lon: Number(snappedPoint.lon),
+      lat: Number(snappedPoint.lat),
+    });
+    setStatus(
+      payload.was_snapped
+        ? "Point moved to the nearest walkable location. Click Find Route to calculate."
+        : "Point updated. Click Find Route to calculate.",
+    );
+  } catch (error) {
+    if (requestId !== state.pointSnapRequestId) {
+      return;
+    }
+    console.error(error);
+    setStatus(error.message || "Unable to snap point.");
+  } finally {
+    if (requestId === state.pointSnapRequestId) {
+      state.pointSnapPending = false;
+    }
+  }
+}
+
+function syncPickedPointsFromRoute(payload) {
+  const startPoint = payload?.start_point;
+  const endPoint = payload?.end_point;
+  if (startPoint) {
+    state.startPoint = { lon: Number(startPoint.lon), lat: Number(startPoint.lat) };
+  }
+  if (endPoint) {
+    state.endPoint = { lon: Number(endPoint.lon), lat: Number(endPoint.lat) };
+  }
+}
+
 async function findRouteForPoints() {
+  if (state.pointSnapPending) {
+    setStatus("Wait for the selected point to snap to a walkable location.");
+    return;
+  }
   if (!state.startPoint || !state.endPoint) {
     setStatus("Please pick both START and END points first.");
     return;
@@ -853,6 +908,8 @@ async function findRouteForPoints() {
     }
 
     state.routeResult = payload;
+    syncPickedPointsFromRoute(payload);
+    updatePickedPointsSource();
     updateSelectedStationsSource();
     updateRouteSource(buildRouteGeoJson(payload));
     renderAll();
@@ -1477,6 +1534,8 @@ function renderMetricCard(label, value) {
 }
 
 function resetAll() {
+  state.pointSnapRequestId += 1;
+  state.pointSnapPending = false;
   state.startPoint = null;
   state.endPoint = null;
   state.viaStationIds = [];
@@ -1536,7 +1595,7 @@ function formatWarning(warning) {
     subway_unreachable_walking_fallback: "Subway was unreachable for this pair of points",
     walk_not_slower_than_metro: "Walking directly is no slower than the MRT route",
     metro_not_enough_time_saving: "MRT does not save enough time over direct walking",
-    metro_detour_too_slow: "The MRT route is too much slower than walking directly",
+    metro_access_walk_too_long: "Walking directly avoids an excessive walk to or from the MRT station",
   };
   return messages[warning] || String(warning).replaceAll("_", " ");
 }
@@ -1549,23 +1608,22 @@ function buildModeDecisionExplanation() {
   const diagnostics = state.routeResult.route_diagnostics || {};
   const mode = diagnostics.mode_decision || state.routeResult.route_selection_reason;
   const walkOnlySec = Number(diagnostics.walk_only_time_sec || state.routeResult.access_walk_time_sec || 0);
-  const compareSec = Number(diagnostics.walk_compare_time_sec || 20 * 60);
-  const minSavingSec = Number(diagnostics.metro_min_short_walk_saving_sec || 7 * 60);
+  const minSavingSec = Number(diagnostics.metro_min_walk_saving_sec || 7 * 60);
   const metroSec = Number(state.routeResult.total_journey_time_sec || 0);
 
   if (state.routeResult.journey_mode === "walk_fallback") {
     if (mode === "walk_not_slower_than_metro" || mode === "metro_not_enough_time_saving") {
       return {
         title: "Route choice",
-        description: `Direct walking is ${formatDuration(walkOnlySec)}. Under ${formatDuration(compareSec)}, MRT must save at least ${formatDuration(minSavingSec)} to be selected.`,
+        description: `Direct walking is ${formatDuration(walkOnlySec)}. MRT must save at least ${formatDuration(minSavingSec)} to be selected.`,
         duration: "",
         badge: "walk",
       };
     }
-    if (mode === "metro_detour_too_slow") {
+    if (mode === "metro_access_walk_too_long") {
       return {
         title: "Route choice",
-        description: `Direct walking is ${formatDuration(walkOnlySec)}, while the MRT detour takes too much extra time.`,
+        description: `Direct walking is ${formatDuration(walkOnlySec)}. The MRT option was rejected because walking to or from its stations would already exceed the walking comfort threshold.`,
         duration: "",
         badge: "walk",
       };
@@ -1577,19 +1635,10 @@ function buildModeDecisionExplanation() {
     return null;
   }
 
-  if (walkOnlySec > compareSec) {
-    return {
-      title: "Route choice",
-      description: `MRT is selected because direct walking is ${formatDuration(walkOnlySec)}, over the ${formatDuration(compareSec)} walking comfort threshold.`,
-      duration: "",
-      badge: "MRT",
-    };
-  }
-
   if (metroSec > 0 && walkOnlySec > 0 && metroSec < walkOnlySec) {
     return {
       title: "Route choice",
-      description: `MRT is selected because it is faster than direct walking (${formatDuration(metroSec)} vs ${formatDuration(walkOnlySec)}).`,
+      description: `MRT is selected because it saves at least ${formatDuration(minSavingSec)} compared with walking directly (${formatDuration(metroSec)} vs ${formatDuration(walkOnlySec)}).`,
       duration: "",
       badge: "MRT",
     };
