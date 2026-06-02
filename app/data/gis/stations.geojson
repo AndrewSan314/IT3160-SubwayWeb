@@ -1921,7 +1921,6 @@
         "id": "xinpu-minsheng",
         "name": "Xinpu Minsheng",
         "line_ids": [
-          "c3",
           "c9"
         ],
         "source": "taipei_geojson"

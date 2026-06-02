@@ -89,6 +89,14 @@ class RouteEngineTests(unittest.TestCase):
             ["sanchong-elementary-school", "daqiaotou", "taipei-bridge"],
         )
 
+    def test_blue_line_skips_xinpu_minsheng(self):
+        engine = RouteEngine(get_network())
+
+        result = engine.find_route("jiangzicui", "banqiao")
+
+        self.assertEqual(result.station_ids, ["jiangzicui", "xinpu", "banqiao"])
+        self.assertNotIn("xinpu-minsheng", result.station_ids)
+
     def test_same_line_route_has_no_transfer(self):
         engine = make_engine()
 

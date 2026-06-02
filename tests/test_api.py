@@ -187,6 +187,10 @@ class ApiTests(unittest.IsolatedAsyncioTestCase):
             feature.get("properties", {}).get("id")
             for feature in body["stations"]["features"]
         }
+        stations_by_id = {
+            feature.get("properties", {}).get("id"): feature.get("properties", {})
+            for feature in body["stations"]["features"]
+        }
         line_ids = {line["id"] for line in body["line_catalog"]}
         line_colors = {
             feature.get("properties", {}).get("line_color")
@@ -211,6 +215,7 @@ class ApiTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("#cabfde", line_colors)
         self.assertNotIn("taoyuan-sports-park", station_ids)
         self.assertNotIn("xinzhuang-fuduxin", station_ids)
+        self.assertEqual(stations_by_id["xinpu-minsheng"]["line_ids"], ["c9"])
 
     async def test_gis_route_points_endpoint_returns_station_route(self):
         body = await get_gis_route_for_points(

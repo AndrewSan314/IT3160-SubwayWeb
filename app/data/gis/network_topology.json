@@ -1591,44 +1591,39 @@
       "seq": 15
     },
     {
-      "station_id": "xinpu-minsheng",
+      "station_id": "banqiao",
       "line_id": "c3",
       "seq": 16
     },
     {
-      "station_id": "banqiao",
+      "station_id": "fuzhong",
       "line_id": "c3",
       "seq": 17
     },
     {
-      "station_id": "fuzhong",
+      "station_id": "far-eastern-hospital",
       "line_id": "c3",
       "seq": 18
     },
     {
-      "station_id": "far-eastern-hospital",
+      "station_id": "haishan",
       "line_id": "c3",
       "seq": 19
     },
     {
-      "station_id": "haishan",
+      "station_id": "tucheng",
       "line_id": "c3",
       "seq": 20
     },
     {
-      "station_id": "tucheng",
+      "station_id": "yongning",
       "line_id": "c3",
       "seq": 21
     },
     {
-      "station_id": "yongning",
-      "line_id": "c3",
-      "seq": 22
-    },
-    {
       "station_id": "dingpu",
       "line_id": "c3",
-      "seq": 23
+      "seq": 22
     },
     {
       "station_id": "songshan",
@@ -2459,18 +2454,6 @@
     },
     {
       "line_id": "c3",
-      "from_station_id": "xinpu-minsheng",
-      "to_station_id": "banqiao",
-      "travel_sec": 60
-    },
-    {
-      "line_id": "c3",
-      "from_station_id": "xinpu-minsheng",
-      "to_station_id": "xinpu",
-      "travel_sec": 60
-    },
-    {
-      "line_id": "c3",
       "from_station_id": "yongchun",
       "to_station_id": "houshanpi",
       "travel_sec": 60
@@ -2888,6 +2871,12 @@
       "from_station_id": "zhongyuan",
       "to_station_id": "qiaohe",
       "travel_sec": 60
+    },
+    {
+      "line_id": "c3",
+      "from_station_id": "xinpu",
+      "to_station_id": "banqiao",
+      "travel_sec": 120
     }
   ],
   "transfers": [],
